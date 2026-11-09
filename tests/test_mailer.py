@@ -224,6 +224,81 @@ def test_smtp_failure_is_logged_not_raised(ecfg, caplog):
     assert "email skipped" in caplog.text and "app password" in caplog.text
 
 
+# --- the jobs.xlsx attachment --------------------------------------------------------------------------------
+
+XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@pytest.fixture
+def xlsx(tmp_path) -> Path:
+    path = tmp_path / "jobs.xlsx"
+    path.write_bytes(b"PK\x03\x04 fake workbook")
+    return path
+
+
+def attachments(msg) -> list[tuple[str, str, bytes]]:
+    return [(a.get_filename(), a.get_content_type(), a.get_content()) for a in msg.iter_attachments()]
+
+
+def test_the_excel_file_is_attached_with_a_note_that_it_is_a_copy(ecfg, xlsx, caplog):
+    with caplog.at_level(logging.INFO, logger="jsearch"):
+        assert mailer.send_top(ranked(4), ecfg, "d", ENV, factory(), attachment=xlsx) is True
+    msg = FakeSMTP.instances[0].sent[0][0]
+    assert attachments(msg) == [("jobs.xlsx", XLSX_TYPE, b"PK\x03\x04 fake workbook")]
+    for kind in ("plain", "html"):
+        assert "Attached: jobs.xlsx, a copy of the full list." in msg.get_body((kind,)).get_content()
+    assert "without the attachment" not in caplog.text
+
+
+def test_a_quiet_day_email_carries_the_attachment_too(ecfg, xlsx):
+    mailer.send_top(ranked(3).assign(new=False), ecfg, "d", ENV, factory(), attachment=xlsx)
+    msg = FakeSMTP.instances[0].sent[0][0]
+    assert msg["Subject"] == "fresher-radar: nothing new today (d)"
+    assert [a[0] for a in attachments(msg)] == ["jobs.xlsx"]
+    assert "Attached: jobs.xlsx" in msg.get_body(("plain",)).get_content()
+
+
+def test_a_fallback_copy_is_attached_under_its_own_name(ecfg, tmp_path):
+    copy = tmp_path / "jobs_2026-11-09_20-18-54.xlsx"   # jobs.xlsx was open in Excel
+    copy.write_bytes(b"workbook")
+    mailer.send_top(ranked(2), ecfg, "d", ENV, factory(), attachment=copy)
+    assert [a[0] for a in attachments(FakeSMTP.instances[0].sent[0][0])] == [copy.name]
+
+
+def test_attaching_off_or_no_file_sends_the_plain_email(ecfg, xlsx, caplog):
+    ecfg["email"]["attach_excel"] = False
+    with caplog.at_level(logging.INFO, logger="jsearch"):
+        mailer.send_top(ranked(2), ecfg, "d", ENV, factory(), attachment=xlsx)
+        msg = FakeSMTP.instances[0].sent[0][0]
+        ecfg["email"]["attach_excel"] = True
+        mailer.send_top(ranked(2), ecfg, "d", ENV, factory())          # no file given (e.g. older callers)
+        msg2 = FakeSMTP.instances[0].sent[0][0]
+    for m in (msg, msg2):
+        assert attachments(m) == [] and "Attached:" not in m.get_body(("plain",)).get_content()
+    assert "without the attachment" not in caplog.text   # nothing went wrong, so nothing to say
+
+
+@pytest.mark.parametrize("make, why", [
+    (lambda p: p.unlink(), "could not read"),
+    (lambda p: p.write_bytes(b"x" * 1_500_001), "jobs.xlsx is 1.5 MB, over email.attach_max_mb 1"),
+])
+def test_a_missing_or_too_big_file_is_logged_and_the_email_still_goes(ecfg, xlsx, caplog, make, why):
+    ecfg["email"]["attach_max_mb"] = 1
+    make(xlsx)
+    with caplog.at_level(logging.INFO, logger="jsearch"):
+        assert mailer.send_top(ranked(2), ecfg, "d", ENV, factory(), attachment=xlsx) is True
+    msg = FakeSMTP.instances[0].sent[0][0]
+    assert attachments(msg) == [] and "Attached:" not in msg.get_body(("plain",)).get_content()
+    assert "email goes without the attachment" in caplog.text and why in caplog.text
+
+
+def test_a_file_exactly_at_the_cap_is_attached(ecfg, xlsx):
+    ecfg["email"]["attach_max_mb"] = 1
+    xlsx.write_bytes(b"x" * 1_000_000)
+    mailer.send_top(ranked(2), ecfg, "d", ENV, factory(), attachment=xlsx)
+    assert [a[0] for a in attachments(FakeSMTP.instances[0].sent[0][0])] == ["jobs.xlsx"]
+
+
 def test_disabled_in_config_sends_nothing(cfg):
     assert mailer.send_top(ranked(2), cfg, "d", ENV, factory()) is False and FakeSMTP.instances == []
 
@@ -248,5 +323,6 @@ def test_refilter_does_not_email_unless_asked(ecfg, sends):
     fetch_jobs.run(Namespace(test=False, refilter=True, sources=[], email=True), ecfg)
     [(df, kw)] = sends
     assert len(df) == 3 and df["fit"].notna().all() and "job_url" in df
+    assert kw["attachment"] == ecfg["paths"]["excel"] and kw["attachment"].is_file()   # this run's workbook
     # from profile.example.yaml's PM resume: 3 slots, and its focus terms for the title check
     assert kw["reserve"] == {"PM": (3, ["product", "roadmap", "stakeholder", "user research", "metrics"])}

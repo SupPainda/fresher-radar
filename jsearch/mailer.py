@@ -2,7 +2,7 @@
 rescoring), best fit first, new ones marked, each with its link; then a count of the other good fits.
 
 Credentials come from .env (EMAIL_FROM, EMAIL_APP_PASSWORD, EMAIL_TO; for Gmail an app password, see
-README); the SMTP server from config.json "email". Optional by design: without credentials, or on any SMTP
+README); the SMTP server from config.json "email", which can also attach this run's jobs.xlsx. Optional by design: without credentials, or on any SMTP
 problem, send_top() logs one line and the run carries on.
 """
 import html
@@ -12,6 +12,7 @@ import smtplib
 import ssl
 from dataclasses import dataclass
 from email.message import EmailMessage
+from pathlib import Path
 from typing import Callable, Mapping
 
 import pandas as pd
@@ -89,11 +90,12 @@ def _section(jobs: pd.DataFrame, start: int) -> tuple[list[str], list[str]]:
 
 
 def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note: str = "",
-                  more: str = "", new_below: int = 0) -> EmailMessage:
+                  more: str = "", new_below: int = 0, attached: str = "") -> EmailMessage:
     """Plain-text and HTML versions of the same list, the jobs new today first.
 
     note (e.g. where the list went) goes above it, more (how many other good fits jobs.xlsx has) below it.
     With no new job on the list, the email is one line instead (new_below: new jobs that scored lower).
+    attached: the attached file's name, for a line saying the attachment is only a copy.
     """
     is_new = top.apply(_is_new, axis=1).astype(bool) if len(top) else pd.Series(dtype=bool)
     fresh, rest = top[is_new], top[~is_new]
@@ -101,15 +103,18 @@ def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note
     msg["From"], msg["To"] = sender, ", ".join(to)
     head_text = f"Note: {note}\n\n" if note else ""
     head_html = f'<p style="color:#c0392b"><b>Note:</b> {html.escape(note)}</p>' if note else ""
+    foot = (f"Attached: {attached}, a copy of the full list. Statuses typed into it are not read back; mark them "
+            f"in the one on your laptop." if attached else "")
+    foot_text, foot_html = (f"\n{foot}\n", f"<p><small>{html.escape(foot)}</small></p>") if foot else ("", "")
 
     if not len(fresh):  # quiet day: one line, not the same list again
         msg["Subject"] = f"{SUBJECT}: nothing new today ({when})"
         line = (f"No new jobs made your top list today"
                 + (f"; {new_below} new {'one' if new_below == 1 else 'ones'} scored lower" if new_below else "")
                 + f". Your top list ({len(top)} jobs) is unchanged in jobs.xlsx.")
-        msg.set_content(head_text + line + "\n")
+        msg.set_content(head_text + line + "\n" + foot_text)
         msg.add_alternative(f'<html><body style="font-family:sans-serif">{head_html}<p>{html.escape(line)}</p>'
-                            "</body></html>", subtype="html")
+                            f"{foot_html}</body></html>", subtype="html")
         return msg
 
     msg["Subject"] = f"{SUBJECT}: {len(fresh)} new, top {len(top)} jobs ({when})"
@@ -121,11 +126,32 @@ def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note
     if len(rest):
         text += f"\nAlso on your top list ({len(rest)}):\n\n" + "\n\n".join(old_lines) + "\n"
         page += f"<h3>Also on your top list ({len(rest)})</h3>" + TABLE_HEAD + "".join(old_rows) + "</table>"
-    text += f"\n{more}\n" if more else ""
-    page += (f"<p>{html.escape(more)}</p>" if more else "") + "</body></html>"
+    text += (f"\n{more}\n" if more else "") + foot_text
+    page += (f"<p>{html.escape(more)}</p>" if more else "") + foot_html + "</body></html>"
     msg.set_content(text)
     msg.add_alternative(page, subtype="html")
     return msg
+
+
+XLSX = ("application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+def attachment_bytes(path: Path | None, cfg: dict) -> bytes | None:
+    """The file to attach, or None (logged when it should have been attached): attaching off (email.attach_excel),
+    no file, unreadable, or over email.attach_max_mb. The email then goes without it."""
+    e = cfg["email"]
+    if not e["attach_excel"] or path is None:
+        return None
+    try:
+        data = path.read_bytes()
+    except OSError as err:
+        logger.info(f"email goes without the attachment (could not read {path}: {err})")
+        return None
+    if len(data) > e["attach_max_mb"] * 1_000_000:
+        logger.info(f"email goes without the attachment ({path.name} is {len(data) / 1_000_000:.1f} MB, over "
+                    f"email.attach_max_mb {e['attach_max_mb']:g})")
+        return None
+    return data
 
 
 def send(msg: EmailMessage, s: MailSettings, cfg: dict,
@@ -149,8 +175,9 @@ def send(msg: EmailMessage, s: MailSettings, cfg: dict,
 
 def send_top(df: pd.DataFrame, cfg: dict, when: str, env: Mapping[str, str] = os.environ,
              smtp_factory: Callable[..., smtplib.SMTP] | None = None, note: str = "",
-             reserve: Mapping[str, Reserve] | None = None) -> bool:
-    """Email the top list (ranking.top). Never raises: problems are logged. True when sent."""
+             reserve: Mapping[str, Reserve] | None = None, attachment: Path | None = None) -> bool:
+    """Email the top list (ranking.top), with attachment (this run's jobs.xlsx) when email.attach_excel allows.
+    Never raises: problems are logged. True when sent."""
     if not cfg["email"]["enabled"]:
         return False
     top_cfg = cfg["ranking"]["top"]
@@ -164,7 +191,11 @@ def send_top(df: pd.DataFrame, cfg: dict, when: str, env: Mapping[str, str] = os
     new_below = int(sum(_is_new(r) for _, r in df.iterrows() if r.get("job_url") not in on_list))
     try:
         s = settings(env)
-        msg = build_message(top, s.sender, s.to, when, note, more, new_below)
+        data = attachment_bytes(attachment, cfg)
+        msg = build_message(top, s.sender, s.to, when, note, more, new_below,
+                            attached=attachment.name if data is not None else "")
+        if data is not None:
+            msg.add_attachment(data, maintype=XLSX[0], subtype=XLSX[1], filename=attachment.name)
         send(msg, s, cfg, smtp_factory)
     except MailUnavailable as e:
         logger.info(f"email skipped ({e})")

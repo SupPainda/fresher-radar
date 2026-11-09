@@ -201,6 +201,8 @@ class Email(Strict):
     smtp_host: str
     smtp_port: int = Field(gt=0, lt=65536)
     timeout_seconds: float = Field(gt=0)
+    attach_excel: bool                  # attach this run's jobs.xlsx
+    attach_max_mb: float = Field(gt=0)  # Gmail refuses emails over 25 MB
 
 
 class Config(Strict):

@@ -492,6 +492,8 @@
     "enabled": true,
     "smtp_host": "smtp.gmail.com",
     "smtp_port": 465,
-    "timeout_seconds": 30
+    "timeout_seconds": 30,
+    "attach_excel": true,
+    "attach_max_mb": 20
   }
 }

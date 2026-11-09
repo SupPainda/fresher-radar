@@ -225,6 +225,11 @@ your top list**. On a day when no new job makes the list, the email is a single 
 jobs scored lower). It uses the final scores, so a job the LLM marked below the bar drops out; a closing line
 counts the other jobs with fit `ranking.top.more_fit` (60) or more that are waiting in `jobs.xlsx`. `--refilter` sends only with `--email`; `--test` never sends.
 
+The run's `jobs.xlsx` comes attached (`email.attach_excel`, about 70 KB), so the full list opens on your phone.
+It is a copy: statuses typed into it are not read back, so mark them in the one on your laptop. If the file is
+over `email.attach_max_mb` (20; Gmail refuses emails over 25 MB) or can't be read, the email goes without it and
+the log says why.
+
 Set it up in `.env` (see `.env.example`): `EMAIL_FROM`, `EMAIL_APP_PASSWORD` and optionally `EMAIL_TO`. For Gmail
 the password is an **app password**: turn on 2-step verification, then create one at
 <https://myaccount.google.com/apppasswords>. Without these, or if sending fails, the run logs one line and

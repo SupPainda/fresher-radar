@@ -227,7 +227,7 @@ def run(args: argparse.Namespace, cfg: dict) -> None:
     top = kinds.value_counts().head(5).to_dict()
     logger.info(f"saved {saved}: {len(rej)} rejected postings with the reason | most common: {top}")
     if not args.refilter or getattr(args, "email", False):
-        mailer.send_top(df, cfg, now_ist(), note=note, reserve=reserves(profile))
+        mailer.send_top(df, cfg, now_ist(), note=note, reserve=reserves(profile), attachment=saved_xlsx)
 
 
 if __name__ == "__main__":

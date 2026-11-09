@@ -108,6 +108,15 @@ def test_invalid_detail_limits_are_reported(change, where):
     assert where in problems(broken(change))
 
 
+@pytest.mark.parametrize("change, where", [
+    (lambda c: c["email"].update(attach_max_mb=0), "email.attach_max_mb"),
+    (lambda c: c["email"].update(attach_excel="yes please"), "email.attach_excel"),
+    (lambda c: c["email"].pop("attach_max_mb"), "email.attach_max_mb: Field required"),
+])
+def test_invalid_attachment_settings_are_reported(change, where):
+    assert where in problems(broken(change))
+
+
 def test_test_location_must_exist():
     msg = problems(broken(lambda c: c["search"]["test"].update(location="Atlantis")))
     assert "search.test.location 'Atlantis' is not a locations label" in msg
