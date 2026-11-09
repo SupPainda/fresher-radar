@@ -83,18 +83,31 @@ def test_settings_never_show_the_password():
 
 # --- which jobs, and the message ---------------------------------------------------------------------------
 
+def fixed(n: int) -> dict:
+    """A top list of exactly n: a bar no job clears, min = max = n, no "more" line."""
+    return {"min_fit": 101, "min_jobs": n, "max_jobs": n, "more_fit": 101}
+
+
 def test_top_jobs_are_the_best_fit_first():
-    top = mailer.top_jobs(ranked(4), 2)
+    top = mailer.top_jobs(ranked(4), fixed(2))
     assert top["fit"].tolist() == [80, 70]
 
 
-def test_no_fit_column_or_zero_n_means_no_jobs():
-    assert mailer.top_jobs(job_frame(3), 30).empty
-    assert mailer.top_jobs(ranked(3), 0).empty
+def test_no_fit_column_or_no_room_means_no_jobs():
+    assert mailer.top_jobs(job_frame(3), fixed(30)).empty
+    assert mailer.top_jobs(ranked(3), fixed(0)).empty
+
+
+def test_more_good_fits_counts_the_rest_above_more_fit():
+    df = ranked(5)                                     # fits 50, 60, 70, 80, 90
+    top = mailer.top_jobs(df, fixed(2))                # 90, 80
+    assert mailer.more_good_fits(df, top, 60) == 2     # 70 and 60; 50 is below
+    assert mailer.more_good_fits(df, top, 95) == 0
+    assert mailer.more_good_fits(job_frame(2), top, 0) == 0   # unranked
 
 
 def test_message_lists_each_job_with_its_link_and_marks_new_ones():
-    top = mailer.top_jobs(ranked(4), 4)
+    top = mailer.top_jobs(ranked(4), fixed(4))
     msg = mailer.build_message(top, "me@gmail.com", ["me@gmail.com"], "9 Nov")
     assert msg["Subject"] == "JSearch: top 4 jobs, 2 new (9 Nov)"
     text = msg.get_body(("plain",)).get_content()
@@ -139,17 +152,25 @@ def test_smtp_problems_become_mail_unavailable(ecfg, fail, message):
         mailer.send(mailer.build_message(ranked(1), s.sender, s.to, "d"), s, ecfg, factory(**fail))
 
 
-def test_send_top_sends_the_top_n(ecfg, caplog):
-    ecfg["ranking"]["llm"]["top_n"] = 3
+def test_send_top_sends_everything_above_the_bar_and_counts_the_rest(ecfg, caplog):
+    ecfg["ranking"]["top"] = {"min_fit": 80, "min_jobs": 0, "max_jobs": 60, "more_fit": 60}
     with caplog.at_level(logging.INFO, logger="jsearch"):
-        assert mailer.send_top(ranked(5), ecfg, "d", ENV, factory()) is True
-    [smtp] = FakeSMTP.instances
-    assert smtp.sent[0][0]["Subject"].startswith("JSearch: top 3 jobs")
-    assert "emailed the top 3 jobs to me@gmail.com" in caplog.text
+        assert mailer.send_top(ranked(5), ecfg, "d", ENV, factory()) is True   # fits 50..90
+    msg = FakeSMTP.instances[0].sent[0][0]
+    text, page = msg.get_body(("plain",)).get_content(), msg.get_body(("html",)).get_content()
+    assert msg["Subject"].startswith("JSearch: top 2 jobs") and "[90]" in text and "[70]" not in text
+    assert "...and 2 more with fit 60+ in jobs.csv." in text and "...and 2 more with fit 60+" in page
+    assert "emailed the top 2 jobs to me@gmail.com" in caplog.text
+
+
+def test_no_more_line_when_nothing_else_is_good(ecfg):
+    ecfg["ranking"]["top"] = {"min_fit": 50, "min_jobs": 0, "max_jobs": 60, "more_fit": 60}
+    mailer.send_top(ranked(5), ecfg, "d", ENV, factory())
+    assert "more with fit" not in FakeSMTP.instances[0].sent[0][0].get_body(("plain",)).get_content()
 
 
 def test_send_top_includes_reserved_jobs(ecfg):
-    ecfg["ranking"]["llm"]["top_n"] = 2
+    ecfg["ranking"]["top"] = fixed(2)
     df = ranked(4).assign(send=["GenAI", "GenAI", "GenAI", "PM"], fit=[90, 80, 70, 30])
     mailer.send_top(df, ecfg, "d", ENV, factory(), reserve={"PM": (1, [])})
     text = FakeSMTP.instances[0].sent[0][0].get_body(("plain",)).get_content()

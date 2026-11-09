@@ -10,7 +10,8 @@ resume, and emails you the best ones with links.
 - **Entry-level filter:** title rules (no Senior/Lead/SDE3...) and the experience the posting asks for. Every
   rejected posting is kept in `rejected.csv` with its reason.
 - **Ranking:** every job is scored against a profile built from your resumes, offline and free; optionally an LLM
-  (Claude, Gemini, OpenRouter, Grok) rescores the top 30 with a one-line reason and the resume variant to send.
+  (Claude, Gemini, OpenRouter, Grok) rescores the best matches (everything above a fit bar, 20 to 60 jobs) with a
+  one-line reason and the resume variant to send.
 - **Tracking:** one CSV you open in Excel; type `applied` or `rejected` in the status column and those jobs stop
   showing up. New jobs are marked NEW.
 - **Daily email:** the top jobs land in your inbox after the 7 PM run (Windows Task Scheduler).
@@ -143,10 +144,13 @@ first. Columns: `fit` (0-100), `scored by` (`offline`, or the LLM model that sco
 - **Offline score (every job, free):** profile skills found in the job's title (counting double), description or
   Naukri skill tags, plus how well the title matches a target role. The scale grows with the profile so a long
   skill list doesn't put everything at 100 (`ranking.*` in config.json).
-- **LLM rescoring (top 30, optional):** with an API key in `.env`, the 30 best offline matches go to the LLM in
-  one request, which returns a score, a one-line reason and the resume to send for each. Scores are cached per
-  job and profile, so later runs only pay for new top jobs. Without a key, or on any API problem, the offline
-  ranking stands. `ranking.llm.top_n` / `enabled` in config.json change how many / whether.
+- **The top list:** every job with offline fit of at least `ranking.top.min_fit` (70), topped up to `min_jobs`
+  (20) on a quiet day and capped at `max_jobs` (60) on a busy one. This is what the LLM rescores and the email
+  lists.
+- **LLM rescoring (optional):** with an API key in `.env`, the top list goes to the LLM in one request, which
+  returns a score, a one-line reason and the resume to send for each. Scores are cached per job and profile, so
+  later runs only pay for new jobs. Without a key, or on any API problem, the offline ranking stands.
+  `ranking.llm.enabled` turns it off.
 - **Reserved slots (optional):** if one of your directions scores lower by nature (say PM roles next to a mostly
   engineering skill list), give that resume variant `reserve: 5` in the profile. Its best 5 jobs then always make
   the top list (LLM review and email), taking the last places of the rest. A reserved job's title must contain
@@ -172,7 +176,7 @@ no answer within `ranking.llm.timeout_seconds`, or an answer in the wrong format
 straight away: `LLM_MODEL` first, then the provider's `model`, then its `fallback_models`, in order. A rejected
 key or no network stops at once. The Gemini list holds the models that answered a test call with a free-tier key.
 
-Resume text leaves your machine only for `--build-profile` and the top-30 rescoring, to the provider you chose.
+Resume text leaves your machine only for `--build-profile` and the top-list rescoring, to the provider you chose.
 
 ## Tracking (jobs.db)
 
@@ -195,9 +199,10 @@ bad value stops the run with a list of every problem and where it is.
 
 ## Email of the top jobs
 
-After every scraping run, the top `ranking.llm.top_n` jobs by fit (the same number the LLM rescores) are emailed
-to you: fit, title with its link, company, location, the reason, which resume to send, and NEW on jobs first seen
-today. `--refilter` sends only with `--email`; `--test` never sends.
+After every scraping run, the top list is emailed to you: fit, title with its link, company, location, the
+reason, which resume to send, and NEW on jobs first seen today. It uses the final scores, so a job the LLM marked
+below the bar drops out; a closing line counts the other jobs with fit `ranking.top.more_fit` (60) or more that
+are waiting in `jobs.csv`. `--refilter` sends only with `--email`; `--test` never sends.
 
 Set it up in `.env` (see `.env.example`): `EMAIL_FROM`, `EMAIL_APP_PASSWORD` and optionally `EMAIL_TO`. For Gmail
 the password is an **app password**: turn on 2-step verification, then create one at

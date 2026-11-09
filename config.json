@@ -403,9 +403,14 @@
     "skill_saturation_min": 12,
     "skill_saturation_share": 0.4,
     "title_multiplier": 2,
+    "top": {
+      "min_fit": 70,
+      "min_jobs": 20,
+      "max_jobs": 60,
+      "more_fit": 60
+    },
     "llm": {
       "enabled": true,
-      "top_n": 30,
       "max_tokens": 16000,
       "timeout_seconds": 180,
       "effort": "low",

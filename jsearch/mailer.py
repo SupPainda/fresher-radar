@@ -1,5 +1,5 @@
-"""Email the top jobs after a run: the same number the LLM rescores (ranking.llm.top_n), best fit first,
-new ones marked, each with its link.
+"""Email the top jobs after a run: the top list (config "ranking.top", by the final fit, so after any LLM
+rescoring), best fit first, new ones marked, each with its link; then a count of the other good fits.
 
 Credentials come from .env (EMAIL_FROM, EMAIL_APP_PASSWORD, EMAIL_TO; for Gmail an app password, see
 README); the SMTP server from config.json "email". Optional by design: without credentials, or on any SMTP
@@ -46,9 +46,17 @@ def settings(env: Mapping[str, str] = os.environ) -> MailSettings:
     return MailSettings(sender, password, to)
 
 
-def top_jobs(df: pd.DataFrame, n: int, reserve: Mapping[str, Reserve] | None = None) -> pd.DataFrame:
-    """The n best-fit jobs, best first, with each resume's reserved slots (see ranking.top_picks)."""
-    return top_picks(df, n, reserve)
+def top_jobs(df: pd.DataFrame, top: Mapping, reserve: Mapping[str, Reserve] | None = None) -> pd.DataFrame:
+    """The top list, best first, with each resume's reserved slots (see ranking.top_picks)."""
+    return top_picks(df, top, reserve)
+
+
+def more_good_fits(df: pd.DataFrame, top_list: pd.DataFrame, more_fit: float) -> int:
+    """Jobs not on the top list with fit >= more_fit: the email points to them in the CSV."""
+    if "fit" not in df or "job_url" not in df:
+        return 0
+    rest = df[~df["job_url"].isin(top_list["job_url"])]
+    return int((rest["fit"] >= more_fit).sum())
 
 
 def _cell(row: pd.Series, col: str) -> str:
@@ -56,8 +64,10 @@ def _cell(row: pd.Series, col: str) -> str:
     return "" if value is None or (not isinstance(value, (list, dict)) and pd.isna(value)) else str(value)
 
 
-def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note: str = "") -> EmailMessage:
-    """Plain-text and HTML versions of the same list; note (e.g. where the CSV went) goes above it."""
+def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note: str = "",
+                  more: str = "") -> EmailMessage:
+    """Plain-text and HTML versions of the same list; note (e.g. where the CSV went) goes above it, more
+    (e.g. how many other good fits the CSV has) below it."""
     new = int(top["new"].sum()) if "new" in top else 0
     msg = EmailMessage()
     msg["Subject"] = f"JSearch: top {len(top)} jobs" + (f", {new} new" if new else "") + f" ({when})"
@@ -77,14 +87,16 @@ def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note
                     f'<td>{badge}<a href="{e["job_url"]}">{e["title"]}</a><br><small>{e["company"]} · '
                     f'{e["location"]}</small></td><td><small>{e["why"]}</small></td><td>{e["send"]}</td></tr>')
     msg.set_content((f"Note: {note}\n\n" if note else "")
-                    + f"Top {len(top)} jobs by fit ({when}):\n\n" + "\n\n".join(lines) + "\n")
+                    + f"Top {len(top)} jobs by fit ({when}):\n\n" + "\n\n".join(lines) + "\n"
+                    + (f"\n{more}\n" if more else ""))
     msg.add_alternative(
         '<html><body style="font-family:sans-serif">'
         + (f'<p style="color:#c0392b"><b>Note:</b> {html.escape(note)}</p>' if note else "")
         + f"<p>Top {len(top)} jobs by fit ({html.escape(when)}){f', {new} new' if new else ''}.</p>"
         '<table cellpadding="6" style="border-collapse:collapse" border="1">'
         "<tr><th>#</th><th>Fit</th><th>Job</th><th>Why</th><th>Send resume</th></tr>"
-        + "".join(rows) + "</table></body></html>", subtype="html")
+        + "".join(rows) + "</table>" + (f"<p>{html.escape(more)}</p>" if more else "") + "</body></html>",
+        subtype="html")
     return msg
 
 
@@ -110,16 +122,19 @@ def send(msg: EmailMessage, s: MailSettings, cfg: dict,
 def send_top(df: pd.DataFrame, cfg: dict, when: str, env: Mapping[str, str] = os.environ,
              smtp_factory: Callable[..., smtplib.SMTP] | None = None, note: str = "",
              reserve: Mapping[str, Reserve] | None = None) -> bool:
-    """Email the top ranking.llm.top_n jobs. Never raises: problems are logged. True when sent."""
+    """Email the top list (ranking.top). Never raises: problems are logged. True when sent."""
     if not cfg["email"]["enabled"]:
         return False
-    top = top_jobs(df, cfg["ranking"]["llm"]["top_n"], reserve)
+    top_cfg = cfg["ranking"]["top"]
+    top = top_jobs(df, top_cfg, reserve)
     if not len(top):
         logger.info("email skipped: no ranked jobs to send (ranking needs a profile)")
         return False
+    extra = more_good_fits(df, top, top_cfg["more_fit"])
+    more = f"...and {extra} more with fit {top_cfg['more_fit']:g}+ in jobs.csv." if extra else ""
     try:
         s = settings(env)
-        send(build_message(top, s.sender, s.to, when, note), s, cfg, smtp_factory)
+        send(build_message(top, s.sender, s.to, when, note, more), s, cfg, smtp_factory)
     except MailUnavailable as e:
         logger.info(f"email skipped ({e})")
         return False

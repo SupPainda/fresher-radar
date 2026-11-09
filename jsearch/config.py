@@ -148,8 +148,7 @@ class LlmProvider(Strict):
 
 
 class Llm(Strict):
-    enabled: bool
-    top_n: int = Field(ge=0)
+    enabled: bool               # rescores the top list (ranking.top)
     max_tokens: int = Field(gt=0)
     timeout_seconds: float = Field(gt=0)   # per request; a model that takes longer counts as failed
     effort: Literal["low", "medium", "high", "xhigh", "max"]   # Anthropic only
@@ -165,6 +164,22 @@ class Llm(Strict):
         return v
 
 
+class TopList(Strict):
+    """Which jobs the LLM rescores and the email lists: every job with fit >= min_fit, at least min_jobs and
+    at most max_jobs (resume reserves come on top, within max_jobs). The email adds a count of the others
+    with fit >= more_fit."""
+    min_fit: float = Field(ge=0, le=100)
+    min_jobs: int = Field(ge=0)
+    max_jobs: int = Field(ge=0)
+    more_fit: float = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def _order(self) -> "TopList":
+        if self.min_jobs > self.max_jobs:
+            raise ValueError(f"min_jobs {self.min_jobs} is larger than max_jobs {self.max_jobs}")
+        return self
+
+
 class Ranking(Strict):
     profile: str
     skill_points: float = Field(ge=0)
@@ -172,6 +187,7 @@ class Ranking(Strict):
     skill_saturation_min: float = Field(gt=0)
     skill_saturation_share: float = Field(gt=0, le=1)
     title_multiplier: float = Field(ge=1)
+    top: TopList
     llm: Llm
 
 

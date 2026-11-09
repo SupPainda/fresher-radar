@@ -397,8 +397,13 @@ def test_anthropic_timeout_is_a_model_failure(cfg):
 
 # --- rescore -----------------------------------------------------------------------------------------------
 
-def test_top_n_jobs_are_sent_in_one_request_and_scored(cfg, profile, ranked, con):
-    cfg["ranking"]["llm"]["top_n"] = 2
+def two(cfg) -> None:
+    """A top list of exactly 2: a bar no job clears, min = max = 2."""
+    cfg["ranking"]["top"].update(min_fit=101, min_jobs=2, max_jobs=2)
+
+
+def test_the_top_list_is_sent_in_one_request_and_scored(cfg, profile, ranked, con):
+    two(cfg)
     backend = FakeBackend(scores((1, 91, "Core RAG role", "GenAI"), (2, 60, "Generic dev", "GenAI")),
                           model="gemini-3.5-flash", provider="gemini")
     out = llm.rescore(ranked, profile, cfg, con, backend_factory=lambda c: backend)
@@ -412,7 +417,7 @@ def test_top_n_jobs_are_sent_in_one_request_and_scored(cfg, profile, ranked, con
 
 
 def test_a_reserved_resume_gets_its_best_job_sent_even_below_the_cut(cfg, profile, ranked, con):
-    cfg["ranking"]["llm"]["top_n"] = 2
+    two(cfg)
     profile.resumes[1].reserve = 1                     # PM: its best job is "Product Manager", ranked last
     assert ranked.set_index("title").loc["Product Manager", "send"] == "PM"
     backend = FakeBackend(scores((1, 88, "a", "GenAI"), (2, 72, "b", "PM")))
@@ -455,10 +460,18 @@ def test_llm_problems_keep_the_offline_ranking(cfg, profile, ranked, con, caplog
     assert store.llm_scores(con, llm.profile_hash(profile)) == {}
 
 
-def test_disabled_or_zero_top_n_makes_no_call(cfg, profile, ranked, con):
+def test_the_bar_decides_how_many_jobs_are_sent(cfg, profile, ranked, con):
+    cfg["ranking"]["top"].update(min_fit=ranked["fit"].iloc[1], min_jobs=0, max_jobs=60)   # top two clear it
+    backend = FakeBackend(scores((1, 80, "a", "GenAI"), (2, 70, "b", "GenAI")))
+    llm.rescore(ranked, profile, cfg, con, backend_factory=lambda c: backend)
+    assert backend.calls[0][1].count("<job id=") == 2
+
+
+def test_disabled_or_an_empty_top_list_makes_no_call(cfg, profile, ranked, con):
     cfg["ranking"]["llm"]["enabled"] = False
     llm.rescore(ranked, profile, cfg, con, backend_factory=never)
-    cfg["ranking"]["llm"].update(enabled=True, top_n=0)
+    cfg["ranking"]["llm"]["enabled"] = True
+    cfg["ranking"]["top"].update(min_jobs=0, max_jobs=0)
     llm.rescore(ranked, profile, cfg, con, backend_factory=never)
 
 

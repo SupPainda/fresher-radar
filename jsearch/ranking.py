@@ -7,8 +7,9 @@ fit = skill part + role part, both set in config.json "ranking":
               the profile's total skill weight);
   role part:  best word overlap between the job title and a target role, scaled to role_points.
 
-The top list (rescored by the LLM, emailed) is the best ranking.llm.top_n by fit, except that a resume variant
-with `reserve: k` in the profile always gets its best k jobs on it (see top_picks).
+The top list (rescored by the LLM, emailed) is every job with fit >= ranking.top.min_fit, at least min_jobs
+and at most max_jobs of them; a resume variant with `reserve: k` in the profile also gets its best k jobs on it
+(see top_picks).
 """
 import re
 from typing import Mapping
@@ -88,18 +89,20 @@ def reserves(profile: Profile | None) -> dict[str, Reserve]:
     return {r.label: (r.reserve, r.focus) for r in profile.resumes if r.reserve} if profile else {}
 
 
-def top_picks(df: pd.DataFrame, n: int, reserve: Mapping[str, Reserve] | None = None) -> pd.DataFrame:
-    """The top n jobs, best fit first (ties: newer posting first).
+def top_picks(df: pd.DataFrame, top: Mapping, reserve: Mapping[str, Reserve] | None = None) -> pd.DataFrame:
+    """The top list, best fit first (ties: newer posting first). top is config "ranking.top".
 
-    Each label in reserve gets its best k jobs in, even below the cut: jobs whose send is that label and whose
-    title has one of its focus terms (a description that merely mentions "product" doesn't make a PM job; no
-    terms: any job sent to it). The remaining slots go to the best of the rest. Reserves never push the list
-    past n. Does not modify df.
+    Every job with fit >= min_fit, topped up to min_jobs from the best of the rest. Each label in reserve also
+    gets its best k jobs in, on top of those: jobs whose send is that label and whose title has one of its focus
+    terms (a description that merely mentions "product" doesn't make a PM job; no terms: any job sent to it).
+    Never more than max_jobs; when that cuts, reserved jobs keep their places and the lowest of the rest go.
+    Does not modify df.
     """
-    if "fit" not in df or not n:
+    if "fit" not in df or not len(df) or not top["max_jobs"]:
         return df.iloc[0:0]
     by = ["fit", "date_posted"] if "date_posted" in df else ["fit"]
     ranked = df.sort_values(by, ascending=False, na_position="last", kind="stable").reset_index(drop=True)
+    base = max(top["min_jobs"], int((ranked["fit"] >= top["min_fit"]).sum()))
     kept: list[int] = []
     if "send" in ranked:
         titles = _col(ranked, "title")
@@ -108,7 +111,9 @@ def top_picks(df: pd.DataFrame, n: int, reserve: Mapping[str, Reserve] | None = 
             if terms:
                 eligible &= titles.str.contains(term_rx(terms))
             kept += ranked.index[eligible][:k].tolist()
-    kept = list(dict.fromkeys(kept))[:n]
+    kept = list(dict.fromkeys(kept))
+    n = min(top["max_jobs"], base + sum(1 for i in kept if i >= base))  # reserved jobs below the bar: extra
+    kept = kept[:n]
     taken = set(kept)
     rest = [i for i in ranked.index if i not in taken][:n - len(kept)]
     return ranked.loc[sorted(kept + rest)]

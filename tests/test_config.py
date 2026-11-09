@@ -90,6 +90,16 @@ def test_ats_source_without_endpoint_is_reported():
 
 
 @pytest.mark.parametrize("change, where", [
+    (lambda c: c["ranking"]["top"].update(min_jobs=70, max_jobs=60), "min_jobs 70 is larger than max_jobs 60"),
+    (lambda c: c["ranking"]["top"].update(min_fit=120), "ranking.top.min_fit"),
+    (lambda c: c["ranking"]["top"].pop("more_fit"), "ranking.top.more_fit: Field required"),
+    (lambda c: c["ranking"]["llm"].update(top_n=30), "ranking.llm.top_n: Extra inputs are not permitted"),
+])
+def test_invalid_top_list_settings_are_reported(change, where):
+    assert where in problems(broken(change))
+
+
+@pytest.mark.parametrize("change, where", [
     (lambda c: c["ats"].update(detail_delay_seconds=[2, 1]), "ats.detail_delay_seconds"),
     (lambda c: c["ats"].update(max_details_per_board=-1), "ats.max_details_per_board"),
     (lambda c: c["ats"].pop("max_details_per_board"), "ats.max_details_per_board: Field required"),
