@@ -87,6 +87,9 @@ class Search(Strict):
 class Titles(Strict):
     search: list[str] = Field(min_length=1)
     want: list[str] = Field(min_length=1)
+    # generic titles ("Software Engineer", "Data Scientist") wanted only with an entry-level word or stated
+    # experience within filters.max_min_years, and only when nothing in want matches already
+    want_if_entry: list[str] = []
     exclude: list[str]
     drop: list[str]
     level_codes: list[str]
@@ -95,8 +98,8 @@ class Titles(Strict):
     needs_entry_signal: list[str]
     entry_signal: list[str]
     internship: str
-    _patterns = field_validator("want", "exclude", "drop", "level_codes", "seniority_words", "manager_allowed",
-                                "needs_entry_signal", "entry_signal")(_compiles)
+    _patterns = field_validator("want", "want_if_entry", "exclude", "drop", "level_codes", "seniority_words",
+                                "manager_allowed", "needs_entry_signal", "entry_signal")(_compiles)
 
     @field_validator("internship")
     @classmethod
@@ -258,6 +261,7 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
     t = cfg["titles"]
     cfg["rx"] = {
         "want": any_of(t["want"]),
+        "want_if_entry": any_of(t["want_if_entry"]) if t["want_if_entry"] else NEVER,
         "exclude": any_of(t["exclude"]),
         "drop": re.compile(r"\b(" + "|".join(t["drop"]) + r")\b", re.I),
         "level_code": any_of(t["level_codes"]),
@@ -267,6 +271,9 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
         "entry_signal": any_of(t["entry_signal"]),
     }
     return cfg
+
+
+NEVER = re.compile(r"(?!)")  # matches nothing (an empty any_of() would match everything)
 
 
 def any_of(patterns: list[str]) -> re.Pattern:

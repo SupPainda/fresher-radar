@@ -39,7 +39,7 @@ def title_reject_reason(title: str, cfg: dict) -> str | None:
     """The rules of reject_reason that need only the title (wanted, excluded, level code, seniority).
     Sources use it to skip fetching details of postings that would be rejected anyway."""
     rx = cfg["rx"]
-    if not rx["want"].search(title):
+    if not rx["want"].search(title) and not rx["want_if_entry"].search(title):
         return "not a wanted title"
     if m := rx["exclude"].search(title):
         return f"excluded word: {m.group(0)}"
@@ -64,8 +64,12 @@ def reject_reason(row: pd.Series | dict, cfg: dict) -> str | None:
         return reason
     y = row["min_years"]
     if pd.isna(y):
-        # titles that are usually senior pass only with an explicit entry-level word
-        if (m := rx["needs_entry_signal"].search(title)) and not rx["entry_signal"].search(title):
+        # titles that are usually senior, and generic titles wanted only via titles.want_if_entry, pass
+        # only with an explicit entry-level word
+        m = rx["needs_entry_signal"].search(title)
+        if m is None and not rx["want"].search(title):
+            m = rx["want_if_entry"].search(title)
+        if m and not rx["entry_signal"].search(title):
             return f'"{m.group(0)}" without an entry-level word or stated experience'
         return None
     limit = cfg["filters"]["max_min_years"]

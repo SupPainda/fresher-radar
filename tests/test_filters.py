@@ -89,6 +89,52 @@ def test_plain_solution_architect_needs_entry_signal_or_stated_experience(cfg):
     assert kept(cfg, "AI Solution Architect I")             # trailing grade I
 
 
+# --- generic titles (titles.want_if_entry): only with an entry-level word or stated experience -------------
+
+@pytest.mark.parametrize("title", [
+    "Associate Software Engineer", "Junior Software Developer", "Software Engineer I", "Software Engineer 1",
+    "SDE-1 Backend", "SDE I", "Software Engineer, New Grad", "Software Engineer - 2026 Graduate",
+    "Associate Data Scientist", "Graduate Full Stack Developer", "Campus Hire - Software Engineer",
+])
+def test_generic_titles_pass_with_an_entry_level_word(cfg, title):
+    assert kept(cfg, title)
+
+
+@pytest.mark.parametrize("title", ["Software Engineer", "Software Developer", "Data Scientist",
+                                   "Full Stack Developer", "Frontend Engineer"])
+def test_generic_titles_without_an_entry_word_need_stated_experience(cfg, title):
+    limit = cfg["filters"]["max_min_years"]
+    assert not kept(cfg, title)
+    assert kept(cfg, title, limit) and not kept(cfg, title, limit + 1)
+    assert "without an entry-level word" in filters.reject_reason({"title": title, "min_years": None}, cfg)
+
+
+@pytest.mark.parametrize("title", ["Machine Learning Engineer", "Software Engineer, GenAI Engineering (AI/ML)",
+                                   "Full Stack+AI Engineer", "Backend Software Engineer"])
+def test_titles_already_wanted_are_not_gated_by_the_generic_rule(cfg, title):
+    assert kept(cfg, title)   # matched by titles.want, so no entry word needed, as before
+
+
+@pytest.mark.parametrize("title, reason", [
+    ("Software Engineer 3 - Enterprise Architecture", "level code: Engineer 3"),
+    ("Full Stack Developer 4", "level code: Developer 4"),
+    ("Associate Software Engineer (Mid-Level)", "seniority word: mid-level"),
+    ("Senior Software Engineer", "seniority word: senior"),
+])
+def test_generic_titles_still_meet_the_level_and_seniority_rules(cfg, title, reason):
+    assert filters.reject_reason({"title": title, "min_years": None}, cfg) == reason
+
+
+def test_an_empty_want_if_entry_list_matches_nothing(monkeypatch, tmp_path):
+    from jsearch import config as C
+    monkeypatch.setenv("JSEARCH_DATA_DIR", str(tmp_path))
+    c = C.load_config()
+    c["titles"]["want_if_entry"] = []
+    c["rx"]["want_if_entry"] = C.NEVER
+    assert not filters.keep({"title": "Associate Software Engineer", "min_years": None}, c)
+    assert C.NEVER.search("anything") is None
+
+
 # --- clean(): date window, dedupe, internship flag --------------------------------------------------------
 
 def test_clean_drops_old_postings_keeps_undated_and_dedupes(cfg):

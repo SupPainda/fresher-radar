@@ -22,7 +22,7 @@
         1,
         3
       ],
-      "max_age_days": 60,
+      "max_age_days": 180,
       "boards": [
         "okta",
         "databricks",
@@ -78,7 +78,7 @@
         1,
         3
       ],
-      "max_age_days": 60,
+      "max_age_days": 180,
       "boards": [
         "paytm",
         "meesho",
@@ -97,7 +97,7 @@
         1,
         3
       ],
-      "max_age_days": 60,
+      "max_age_days": 180,
       "boards": [
         "tekion",
         "sarvam",
@@ -125,7 +125,7 @@
         1,
         3
       ],
-      "max_age_days": 60,
+      "max_age_days": 180,
       "boards": [
         "writesonic"
       ]
@@ -136,7 +136,7 @@
         1,
         3
       ],
-      "max_age_days": 60,
+      "max_age_days": 180,
       "boards": [
         "boschgroup",
         "swiggy",
@@ -277,6 +277,13 @@
       "\\bllms?\\b|large\\s+language\\s+model|prompt\\s+engineer|agentic|\\brag\\b|applied\\s+ai|\\bnlp\\s+engineer|\\bai\\s*(developer|specialist|application|solutions?\\s+engineer)",
       "(?=.*\\b(software|data|ai|ml|machine\\s+learning|gen\\s?ai|llm|nlp|backend|cloud|python|devops|engineer(ing)?|developer|solutions?|technical|tech)\\b).*\\bintern(ship)?\\b"
     ],
+    "want_if_entry": [
+      "software\\s+(development\\s+)?(engineer|developer)|\\bsde\\b|\\bswe\\b",
+      "full[\\s-]?stack|front[\\s-]?end",
+      "data\\s+scien(tist|ce)",
+      "machine\\s+learning|\\bml\\b",
+      "new\\s+grad|university\\s+grad|graduate\\s+(program|programme|engineer)"
+    ],
     "exclude": [
       "executive",
       "tele\\s?calling",
@@ -308,11 +315,13 @@
       "iii",
       "iv",
       "sse",
-      "intermediate"
+      "intermediate",
+      "mid[\\s-]?level"
     ],
     "level_codes": [
       "\\b[3-9][a-z]?\\s*$",
-      "\\b(l|ba|sde|swe|se|ic|pm)[3-9]\\b"
+      "\\b(l|ba|sde|swe|se|ic|pm)[3-9]\\b",
+      "\\b(engineer|developer|scientist|sde|swe)\\s*[-–]?\\s*[3-9]\\b"
     ],
     "seniority_words": [
       "senior",
@@ -332,7 +341,13 @@
     ],
     "entry_signal": [
       "\\b(associate|assoc|junior|jr|graduate|trainee|freshers?|entry[\\s-]level)\\b",
-      "\\bi\\s*$"
+      "\\bi\\s*$",
+      "\\bsde[\\s-]*(1|i)\\b",
+      "\\b(engineer|developer)\\s*[-–]?\\s*(1|i)\\s*$",
+      "new\\s+grad",
+      "university\\s+grad",
+      "\\bcampus\\b",
+      "\\b20(26|27)\\b"
     ],
     "internship": "\\bintern(?:ship)?\\b"
   },

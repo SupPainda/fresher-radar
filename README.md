@@ -100,8 +100,9 @@ way to see them. To add a company, put its board id in the right `boards` list (
 `boards.greenhouse.io/<id>` or `jobs.lever.co/<id>`).
 
 Sources run in parallel, one worker per source, so a run takes as long as the slowest one; within a source,
-requests go one at a time with that source's `delay_seconds` between them. Company boards keep open jobs for
-months, so they use a 60-day age window (`max_age_days`) instead of `search.days`. SmartRecruiters lists jobs
+requests go one at a time with that source's `delay_seconds` between them. Company boards list jobs until
+they're filled, often for months, so they use a 180-day age window (`max_age_days`) instead of `search.days`
+(going from 60 to 180 days roughly tripled what the boards contribute). SmartRecruiters lists jobs
 without their text, so a job's details are fetched only when it is recent, in India and passes the title rules
 (at most `ats.max_details_per_board` per company).
 
@@ -128,8 +129,14 @@ found, i.e. what dropping the city searches would cost.
 title ("Data Engineer (2 to 5 Years)"), else the lowest "N years" in the description that has an "exp..." word
 within `filters.experience_context_chars` characters (so "founded 25 years ago" is ignored). Titles matching
 `titles.needs_entry_signal` (plain "Solution Architect") with no stated experience pass only with an
-`entry_signal` word (associate, junior, graduate, a trailing "I", ...). `titles.level_codes` drops L3+ and
-trailing grade codes ("AI Engineer 4A", "Architect - HR 3"). Internships are included when the title also has a
+`entry_signal` word (associate, junior, graduate, new grad, campus, SDE-1, a trailing "I", ...).
+
+**Generic titles** ("Software Engineer", "SDE", "Full Stack", "Data Scientist", "New Grad") are in
+`titles.want_if_entry`: they pass only with one of those entry words or stated experience within
+`filters.max_min_years`, so a plain "Software Engineer" at a big company doesn't get in on its title alone. A title
+that something in `titles.want` already matches ("Machine Learning Engineer", "Software Engineer, GenAI") isn't
+gated this way. `titles.level_codes` drops L3+, SDE3 and level 3+ grades in or at the end of a title ("AI Engineer
+4A", "Architect - HR 3", "Software Engineer 3 - Platform"); "Mid-Level" counts as a seniority word. Internships are included when the title also has a
 tech word ("AI/ML Intern" yes, "HR Intern" no); the `internship` column flags them.
 
 ## Ranking jobs by fit to you
