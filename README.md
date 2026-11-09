@@ -93,10 +93,12 @@ other's logs.
 **Job sites vs company boards.** Naukri and Indeed are marketplaces: wide coverage, but also reposts, agency
 listings and stale jobs, and they rate-limit scrapers. The board systems are the software companies use to run
 their own hiring (the jobs behind a "Careers" page); their feeds are public, so those jobs come straight from the
-company. They only cover companies on the list. About 450 Indian and global companies were checked on all five
-systems (November 2026); the 103 with jobs in India are in `config.json`, most India postings first. Many large
-Indian employers (Flipkart, Razorpay, PhonePe, Zomato) had no public feed on any of the five, so Naukri is the
-way to see them. To add a company, put its board id in the right `boards` list (the id is in its careers URL, e.g.
+company. They only cover companies on the list. About 670 Indian and global companies were checked (November
+2026: tech and startups, then banks and financial services, hospitals, pharma and health-tech, defence and
+space); the 111 with jobs in India are in `config.json`. Many large Indian employers had no public feed on any of
+the five, so Naukri is the way to see them: Flipkart, Razorpay, PhonePe, Zomato and its District and Blinkit
+(Eternal hires mostly through referrals), banks such as SBI, HDFC Bank, ICICI and IDFC FIRST (own career portals
+or recruitment exams), most hospital chains and pharma companies, and defence PSUs such as HAL and BEL. To add a company, put its board id in the right `boards` list (the id is in its careers URL, e.g.
 `boards.greenhouse.io/<id>` or `jobs.lever.co/<id>`).
 
 Sources run in parallel, one worker per source, so a run takes as long as the slowest one; within a source,

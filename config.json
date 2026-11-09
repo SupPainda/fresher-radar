@@ -69,7 +69,8 @@
         "celigo",
         "cockroachlabs",
         "scaleai",
-        "vercel"
+        "vercel",
+        "metropolis"
       ]
     },
     "lever": {
@@ -88,7 +89,9 @@
         "fampay",
         "cred",
         "nium",
-        "pocketfm"
+        "pocketfm",
+        "dozee",
+        "gushwork"
       ]
     },
     "ashby": {
@@ -116,7 +119,9 @@
         "temporal",
         "gigaml",
         "writer",
-        "zapier"
+        "zapier",
+        "atlys",
+        "bolna"
       ]
     },
     "workable": {
@@ -166,7 +171,10 @@
         "loginext",
         "nobroker",
         "upstox",
-        "whatfix"
+        "whatfix",
+        "narayanahealth",
+        "turtlemint",
+        "newtonschool"
       ]
     }
   },
