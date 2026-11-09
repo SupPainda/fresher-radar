@@ -147,6 +147,10 @@ first. Columns: `fit` (0-100), `scored by` (`offline`, or the LLM model that sco
   one request, which returns a score, a one-line reason and the resume to send for each. Scores are cached per
   job and profile, so later runs only pay for new top jobs. Without a key, or on any API problem, the offline
   ranking stands. `ranking.llm.top_n` / `enabled` in config.json change how many / whether.
+- **Reserved slots (optional):** if one of your directions scores lower by nature (say PM roles next to a mostly
+  engineering skill list), give that resume variant `reserve: 5` in the profile. Its best 5 jobs then always make
+  the top list (LLM review and email), taking the last places of the rest. A reserved job's title must contain
+  one of that variant's `focus` terms, so an engineering job that merely mentions "product" doesn't qualify.
 
 **Which LLM.** Put any one key in `.env` as `LLM_API_KEY`; the provider is detected from how the key starts:
 

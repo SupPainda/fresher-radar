@@ -69,6 +69,7 @@ def test_missing_profile_is_none(tmp_path):
     ("skills: {python: 5}", "weights must be 1, 2 or 3"),
     ("aliases: {java: [jvm]}", "aliases for skills that are not in skills: ['java']"),
     ("resumes: [{label: A}, {label: A}]", "resume labels must be unique"),
+    ("resumes: [{label: A, reserve: -1}]", "reserve"),
     ("target_roles: []", "target_roles"),
     ("experience_years: -1", "experience_years"),
     ("hobbies: [chess]", "hobbies: Extra inputs are not permitted"),

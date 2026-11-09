@@ -16,6 +16,8 @@ from typing import Callable, Mapping
 
 import pandas as pd
 
+from jsearch.ranking import Reserve, top_picks
+
 logger = logging.getLogger("jsearch.mailer")
 
 
@@ -44,11 +46,9 @@ def settings(env: Mapping[str, str] = os.environ) -> MailSettings:
     return MailSettings(sender, password, to)
 
 
-def top_jobs(df: pd.DataFrame, n: int) -> pd.DataFrame:
-    """The n best-fit jobs, best first (ties: newer posting first)."""
-    if "fit" not in df or not n:
-        return df.iloc[0:0]
-    return df.sort_values(["fit", "date_posted"], ascending=False, na_position="last").head(n)
+def top_jobs(df: pd.DataFrame, n: int, reserve: Mapping[str, Reserve] | None = None) -> pd.DataFrame:
+    """The n best-fit jobs, best first, with each resume's reserved slots (see ranking.top_picks)."""
+    return top_picks(df, n, reserve)
 
 
 def _cell(row: pd.Series, col: str) -> str:
@@ -108,11 +108,12 @@ def send(msg: EmailMessage, s: MailSettings, cfg: dict,
 
 
 def send_top(df: pd.DataFrame, cfg: dict, when: str, env: Mapping[str, str] = os.environ,
-             smtp_factory: Callable[..., smtplib.SMTP] | None = None, note: str = "") -> bool:
+             smtp_factory: Callable[..., smtplib.SMTP] | None = None, note: str = "",
+             reserve: Mapping[str, Reserve] | None = None) -> bool:
     """Email the top ranking.llm.top_n jobs. Never raises: problems are logged. True when sent."""
     if not cfg["email"]["enabled"]:
         return False
-    top = top_jobs(df, cfg["ranking"]["llm"]["top_n"])
+    top = top_jobs(df, cfg["ranking"]["llm"]["top_n"], reserve)
     if not len(top):
         logger.info("email skipped: no ranked jobs to send (ranking needs a profile)")
         return False

@@ -411,6 +411,16 @@ def test_top_n_jobs_are_sent_in_one_request_and_scored(cfg, profile, ranked, con
     assert len(store.llm_scores(con, llm.profile_hash(profile))) == 2
 
 
+def test_a_reserved_resume_gets_its_best_job_sent_even_below_the_cut(cfg, profile, ranked, con):
+    cfg["ranking"]["llm"]["top_n"] = 2
+    profile.resumes[1].reserve = 1                     # PM: its best job is "Product Manager", ranked last
+    assert ranked.set_index("title").loc["Product Manager", "send"] == "PM"
+    backend = FakeBackend(scores((1, 88, "a", "GenAI"), (2, 72, "b", "PM")))
+    llm.rescore(ranked, profile, cfg, con, backend_factory=lambda c: backend)
+    user = backend.calls[0][1]
+    assert "title: AI Engineer" in user and "title: Product Manager" in user and "Python Developer" not in user
+
+
 def test_cached_scores_mean_no_second_call(cfg, profile, ranked, con):
     llm.rescore(ranked, profile, cfg, con, backend_factory=lambda c: FakeBackend(
         scores((1, 90, "a", "GenAI"), (2, 70, "b", "GenAI"), (3, 20, "c", "PM")), model="m1"))

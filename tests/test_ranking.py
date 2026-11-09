@@ -7,7 +7,7 @@ import pytest
 import fetch_jobs
 from jsearch.config import ROOT
 from jsearch.profile import Profile, Resume
-from jsearch.ranking import saturation, score
+from jsearch.ranking import reserves, saturation, score, top_picks
 from tests.helpers import job_frame
 
 
@@ -100,6 +100,79 @@ def test_score_does_not_modify_input_and_handles_empty(cfg, profile):
 def test_missing_text_columns_are_treated_as_empty(cfg, profile):
     row = one(pd.DataFrame({"title": ["AI Engineer"], "company": ["Co"]}), profile, cfg)
     assert row["why"] == "no profile skills mentioned | role: AI Engineer"
+
+
+# --- the top list: best n, with each resume's reserved slots -----------------------------------------------
+
+def scored(*rows: tuple[str, int, str]) -> pd.DataFrame:
+    """(title, fit, send) rows, newest first by date so ties are predictable."""
+    dates = pd.date_range(end="2026-11-09", periods=len(rows))[::-1]
+    return pd.DataFrame({"title": [t for t, _, _ in rows], "fit": [f for _, f, _ in rows],
+                         "send": [s for _, _, s in rows], "date_posted": dates})
+
+
+SIX = scored(("AI 1", 95, "GenAI"), ("AI 2", 90, "GenAI"), ("AI 3", 85, "GenAI"), ("AI 4", 80, "GenAI"),
+             ("PM 1", 50, "PM"), ("PM 2", 40, "PM"))
+
+
+def test_without_reserves_the_top_list_is_the_best_fit():
+    assert top_picks(SIX, 3)["title"].tolist() == ["AI 1", "AI 2", "AI 3"]
+
+
+def test_reserved_jobs_take_slots_from_the_bottom_of_the_rest():
+    picks = top_picks(SIX, 4, {"PM": (1, [])})
+    assert picks["title"].tolist() == ["AI 1", "AI 2", "AI 3", "PM 1"]   # PM 1 replaces AI 4, list stays 4 long
+
+
+def test_a_reserve_larger_than_the_jobs_available_takes_what_there_is():
+    assert top_picks(SIX, 4, {"PM": (5, [])})["title"].tolist() == ["AI 1", "AI 2", "PM 1", "PM 2"]
+
+
+def test_reserves_never_make_the_list_longer_than_n():
+    assert top_picks(SIX, 2, {"PM": (5, [])})["title"].tolist() == ["PM 1", "PM 2"]
+
+
+def test_jobs_already_in_the_top_count_towards_their_reserve():
+    assert top_picks(SIX, 3, {"GenAI": (2, [])})["title"].tolist() == ["AI 1", "AI 2", "AI 3"]
+
+
+def test_a_reserved_slot_needs_a_focus_term_in_the_title():
+    # "Data and AI Engineer" was sent to PM because its description talks product; it doesn't get a PM slot
+    df = scored(("AI 1", 95, "GenAI"), ("AI 2", 90, "GenAI"), ("Data and AI Engineer", 62, "PM"),
+                ("Associate Product Manager", 57, "PM"))
+    assert top_picks(df, 3, {"PM": (1, ["product", "roadmap"])})["title"].tolist() == \
+        ["AI 1", "AI 2", "Associate Product Manager"]
+    assert top_picks(df, 3, {"PM": (1, [])})["title"].tolist() == ["AI 1", "AI 2", "Data and AI Engineer"]
+
+
+def test_ties_go_to_the_newer_posting():
+    tied = scored(("new", 70, "PM"), ("old", 70, "PM"))
+    assert top_picks(tied, 1)["title"].tolist() == ["new"]
+
+
+@pytest.mark.parametrize("df, n, reserve", [
+    (SIX.drop(columns="fit"), 3, {}),      # not ranked (no profile)
+    (SIX, 0, {"PM": (2, [])}),             # top_n 0
+])
+def test_no_fit_or_zero_n_gives_an_empty_list(df, n, reserve):
+    assert top_picks(df, n, reserve).empty
+
+
+def test_an_unknown_label_or_no_send_column_changes_nothing():
+    assert top_picks(SIX, 3, {"DA": (2, [])})["title"].tolist() == ["AI 1", "AI 2", "AI 3"]
+    assert top_picks(SIX.drop(columns="send"), 3, {"PM": (2, [])})["title"].tolist() == ["AI 1", "AI 2", "AI 3"]
+
+
+def test_top_picks_does_not_modify_its_input():
+    before = SIX.copy()
+    top_picks(SIX, 4, {"PM": (2, ["pm"])})
+    pd.testing.assert_frame_equal(SIX, before)
+
+
+def test_reserves_come_from_the_profile(profile):
+    assert reserves(profile) == {}
+    profile.resumes[1].reserve = 4
+    assert reserves(profile) == {"PM": (4, ["product", "roadmap", "stakeholder"])} and reserves(None) == {}
 
 
 # --- inside a run ------------------------------------------------------------------------------------------

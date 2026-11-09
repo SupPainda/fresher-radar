@@ -25,6 +25,7 @@ from pydantic import BaseModel, ValidationError
 
 from jsearch import store
 from jsearch.profile import Profile, Resume, profile_hash
+from jsearch.ranking import reserves, top_picks
 from jsearch.runlog import IST
 
 logger = logging.getLogger("jsearch.llm")
@@ -391,7 +392,8 @@ def _job_block(job_id: int, row: pd.Series) -> str:
 
 def rescore(df: pd.DataFrame, profile: Profile, cfg: dict, con: sqlite3.Connection,
             backend_factory=make_backend) -> pd.DataFrame:
-    """LLM scores for the top_n offline matches (cached ones reused); others keep the offline score.
+    """LLM scores for the top_n offline matches, resume reserves included (cached ones reused); others keep the
+    offline score.
 
     scored_by becomes the model id for jobs with an LLM score.
     """
@@ -399,7 +401,7 @@ def rescore(df: pd.DataFrame, profile: Profile, cfg: dict, con: sqlite3.Connecti
     phash = profile_hash(profile)
     df = df.assign(_key=store.job_key(df["title"], df["company"]))
     cached = store.llm_scores(con, phash)
-    top = df.nlargest(llm["top_n"], "fit") if llm["enabled"] and llm["top_n"] else df.iloc[0:0]
+    top = top_picks(df, llm["top_n"], reserves(profile)) if llm["enabled"] and llm["top_n"] else df.iloc[0:0]
     todo = top[~top["_key"].isin(cached)]
 
     if len(todo):

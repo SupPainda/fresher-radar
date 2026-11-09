@@ -20,7 +20,7 @@ from jsearch.config import ConfigError, load_config
 from jsearch.filters import clean, min_years, reject_reason
 from jsearch.outputs import OutputLocked, check_writable, save_csv
 from jsearch.profile import Profile, ProfileError, load_profile, read_resumes, write_profile
-from jsearch.ranking import score
+from jsearch.ranking import reserves, score
 from jsearch.runlog import IST, now_ist, start_log
 from jsearch.runner import Checkpoint, merge_with_saved, scrape
 
@@ -221,7 +221,7 @@ def run(args: argparse.Namespace, cfg: dict) -> None:
     top = kinds.value_counts().head(5).to_dict()
     logger.info(f"saved {saved}: {len(rej)} rejected postings with the reason | most common: {top}")
     if not args.refilter or getattr(args, "email", False):
-        mailer.send_top(df, cfg, now_ist(), note=note)
+        mailer.send_top(df, cfg, now_ist(), note=note, reserve=reserves(profile))
 
 
 if __name__ == "__main__":

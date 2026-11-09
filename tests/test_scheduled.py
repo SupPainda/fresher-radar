@@ -88,7 +88,7 @@ def test_the_email_says_when_the_list_went_to_a_copy(refilter_cfg, monkeypatch):
         return real_save(out, path.with_name("jobs_2026-11-09_19-05-00.csv") if path == csv else path)
     notes = []
     monkeypatch.setattr(fetch_jobs, "save_csv", save)
-    monkeypatch.setattr(mailer, "send_top", lambda df, cfg, when, note="": notes.append(note))
+    monkeypatch.setattr(mailer, "send_top", lambda df, cfg, when, note="", **kw: notes.append(note))
     fetch_jobs.run(args(refilter=True, email=True), refilter_cfg)
     assert notes == ["jobs.csv was open in Excel, so this run's list was saved to jobs_2026-11-09_19-05-00.csv; "
                      "statuses typed into that copy are not read back."]
@@ -96,7 +96,7 @@ def test_the_email_says_when_the_list_went_to_a_copy(refilter_cfg, monkeypatch):
 
 def test_no_note_when_jobs_csv_was_written(refilter_cfg, monkeypatch):
     notes = []
-    monkeypatch.setattr(mailer, "send_top", lambda df, cfg, when, note="": notes.append(note))
+    monkeypatch.setattr(mailer, "send_top", lambda df, cfg, when, note="", **kw: notes.append(note))
     fetch_jobs.run(args(refilter=True, email=True), refilter_cfg)
     assert notes == [""]
 

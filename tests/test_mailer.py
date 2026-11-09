@@ -148,6 +148,14 @@ def test_send_top_sends_the_top_n(ecfg, caplog):
     assert "emailed the top 3 jobs to me@gmail.com" in caplog.text
 
 
+def test_send_top_includes_reserved_jobs(ecfg):
+    ecfg["ranking"]["llm"]["top_n"] = 2
+    df = ranked(4).assign(send=["GenAI", "GenAI", "GenAI", "PM"], fit=[90, 80, 70, 30])
+    mailer.send_top(df, ecfg, "d", ENV, factory(), reserve={"PM": (1, [])})
+    text = FakeSMTP.instances[0].sent[0][0].get_body(("plain",)).get_content()
+    assert "[90]" in text and "[30]" in text and "[80]" not in text
+
+
 @pytest.mark.parametrize("env, df, why", [
     ({}, ranked(2), "EMAIL_FROM and EMAIL_APP_PASSWORD not set"),
     (ENV, job_frame(2), "no ranked jobs"),
@@ -179,7 +187,7 @@ def sends(ecfg, monkeypatch):
     ecfg["paths"]["raw"].parent.mkdir(parents=True, exist_ok=True)
     job_frame(3, prefix="AI Engineer").to_pickle(ecfg["paths"]["raw"])
     calls = []
-    monkeypatch.setattr(mailer, "send_top", lambda df, cfg, when, note="": calls.append(df) or True)
+    monkeypatch.setattr(mailer, "send_top", lambda df, cfg, when, **kw: calls.append((df, kw)) or True)
     return calls
 
 
@@ -187,5 +195,7 @@ def test_refilter_does_not_email_unless_asked(ecfg, sends):
     fetch_jobs.run(Namespace(test=False, refilter=True, sources=[]), ecfg)
     assert sends == []
     fetch_jobs.run(Namespace(test=False, refilter=True, sources=[], email=True), ecfg)
-    [df] = sends
+    [(df, kw)] = sends
     assert len(df) == 3 and df["fit"].notna().all() and "job_url" in df
+    # from profile.example.yaml's PM resume: 3 slots, and its focus terms for the title check
+    assert kw["reserve"] == {"PM": (3, ["product", "roadmap", "stakeholder", "user research", "metrics"])}

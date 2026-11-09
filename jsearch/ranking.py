@@ -6,8 +6,12 @@ fit = skill part + role part, both set in config.json "ranking":
               skill list doesn't put every job at 100: max(skill_saturation_min, skill_saturation_share x
               the profile's total skill weight);
   role part:  best word overlap between the job title and a target role, scaled to role_points.
+
+The top list (rescored by the LLM, emailed) is the best ranking.llm.top_n by fit, except that a resume variant
+with `reserve: k` in the profile always gets its best k jobs on it (see top_picks).
 """
 import re
+from typing import Mapping
 
 import pandas as pd
 
@@ -74,3 +78,37 @@ def score(df: pd.DataFrame, profile: Profile, cfg: dict) -> pd.DataFrame:
         sends.append(max(counts, key=lambda c: c[0])[1] if counts else "")  # ties: first listed resume
 
     return df.assign(fit=fits, why=whys, send=sends, scored_by="offline")
+
+
+Reserve = tuple[int, list[str]]  # (slots, focus terms one of which a reserved job's title must contain)
+
+
+def reserves(profile: Profile | None) -> dict[str, Reserve]:
+    """{resume label: (reserved slots, its focus terms)} for the variants that reserve any."""
+    return {r.label: (r.reserve, r.focus) for r in profile.resumes if r.reserve} if profile else {}
+
+
+def top_picks(df: pd.DataFrame, n: int, reserve: Mapping[str, Reserve] | None = None) -> pd.DataFrame:
+    """The top n jobs, best fit first (ties: newer posting first).
+
+    Each label in reserve gets its best k jobs in, even below the cut: jobs whose send is that label and whose
+    title has one of its focus terms (a description that merely mentions "product" doesn't make a PM job; no
+    terms: any job sent to it). The remaining slots go to the best of the rest. Reserves never push the list
+    past n. Does not modify df.
+    """
+    if "fit" not in df or not n:
+        return df.iloc[0:0]
+    by = ["fit", "date_posted"] if "date_posted" in df else ["fit"]
+    ranked = df.sort_values(by, ascending=False, na_position="last", kind="stable").reset_index(drop=True)
+    kept: list[int] = []
+    if "send" in ranked:
+        titles = _col(ranked, "title")
+        for label, (k, terms) in (reserve or {}).items():
+            eligible = ranked["send"] == label
+            if terms:
+                eligible &= titles.str.contains(term_rx(terms))
+            kept += ranked.index[eligible][:k].tolist()
+    kept = list(dict.fromkeys(kept))[:n]
+    taken = set(kept)
+    rest = [i for i in ranked.index if i not in taken][:n - len(kept)]
+    return ranked.loc[sorted(kept + rest)]

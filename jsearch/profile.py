@@ -34,6 +34,7 @@ class Resume(Strict):
     label: str = Field(min_length=1)
     file: str = ""
     focus: list[str] = []
+    reserve: int = Field(default=0, ge=0)  # the best this-many jobs for this resume always make the top list
 
 
 class Profile(Strict):
