@@ -1,0 +1,461 @@
+{
+  "sources": {
+    "naukri": {
+      "type": "jobspy",
+      "delay_seconds": [
+        18,
+        26
+      ],
+      "options": {
+        "results_wanted": 20
+      }
+    },
+    "indeed": {
+      "type": "jobspy",
+      "options": {
+        "country_indeed": "India"
+      }
+    },
+    "greenhouse": {
+      "type": "ats",
+      "delay_seconds": [
+        1,
+        3
+      ],
+      "max_age_days": 60,
+      "boards": [
+        "okta",
+        "databricks",
+        "zscaler",
+        "mongodb",
+        "inmobi",
+        "highradius",
+        "stripe",
+        "sigmoid",
+        "zenoti",
+        "zetaglobal",
+        "gitlab",
+        "rubrik",
+        "toast",
+        "glance",
+        "gleanwork",
+        "fivetran",
+        "netskope",
+        "elastic",
+        "hackerrank",
+        "twilio",
+        "harnessinc",
+        "agoda",
+        "coinbase",
+        "airbnb",
+        "druva",
+        "groww",
+        "wizinc",
+        "datadog",
+        "sumologic",
+        "turing",
+        "anthropic",
+        "truefoundry",
+        "apolloio",
+        "cloudflare",
+        "jfrog",
+        "observeai",
+        "figma",
+        "newrelic",
+        "samsara",
+        "togetherai",
+        "adyen",
+        "thoughtworks",
+        "celigo",
+        "cockroachlabs",
+        "scaleai",
+        "vercel"
+      ]
+    },
+    "lever": {
+      "type": "ats",
+      "delay_seconds": [
+        1,
+        3
+      ],
+      "max_age_days": 60,
+      "boards": [
+        "paytm",
+        "meesho",
+        "hevodata",
+        "zeta",
+        "mindtickle",
+        "fampay",
+        "cred",
+        "nium",
+        "pocketfm"
+      ]
+    },
+    "ashby": {
+      "type": "ats",
+      "delay_seconds": [
+        1,
+        3
+      ],
+      "max_age_days": 60,
+      "boards": [
+        "tekion",
+        "sarvam",
+        "bureau",
+        "ema",
+        "snowflake",
+        "harvey",
+        "elevenlabs",
+        "openai",
+        "cursor",
+        "anyscale",
+        "atlan",
+        "composio",
+        "deepgram",
+        "notion",
+        "temporal",
+        "gigaml",
+        "writer",
+        "zapier"
+      ]
+    },
+    "workable": {
+      "type": "ats",
+      "delay_seconds": [
+        1,
+        3
+      ],
+      "max_age_days": 60,
+      "boards": [
+        "writesonic"
+      ]
+    },
+    "smartrecruiters": {
+      "type": "ats",
+      "delay_seconds": [
+        1,
+        3
+      ],
+      "max_age_days": 60,
+      "boards": [
+        "boschgroup",
+        "swiggy",
+        "servicenow",
+        "nielseniq",
+        "experian",
+        "freshworks",
+        "wise",
+        "continental",
+        "grab",
+        "lokal",
+        "mindtickle",
+        "ixigo",
+        "ubisoft2",
+        "hackerrank",
+        "shipsy",
+        "entropik",
+        "instahyre",
+        "unacademy",
+        "netskope",
+        "vernacularai",
+        "westerndigital",
+        "cars24",
+        "gripinvest",
+        "interviewbit",
+        "lendingkart",
+        "loginext",
+        "nobroker",
+        "upstox",
+        "whatfix"
+      ]
+    }
+  },
+  "locations": [
+    {
+      "label": "Mumbai",
+      "query": "Mumbai",
+      "remote": false
+    },
+    {
+      "label": "Bengaluru",
+      "query": "Bengaluru",
+      "remote": false
+    },
+    {
+      "label": "Pune",
+      "query": "Pune",
+      "remote": false
+    },
+    {
+      "label": "Hyderabad",
+      "query": "Hyderabad",
+      "remote": false
+    },
+    {
+      "label": "Delhi NCR",
+      "query": "Delhi",
+      "remote": false
+    },
+    {
+      "label": "Chennai",
+      "query": "Chennai",
+      "remote": false
+    },
+    {
+      "label": "India",
+      "query": "India",
+      "remote": false
+    },
+    {
+      "label": "Remote",
+      "query": "India",
+      "remote": true
+    }
+  ],
+  "search": {
+    "days": 14,
+    "results_per_search": 30,
+    "delay_seconds": [
+      4,
+      9
+    ],
+    "test": {
+      "title": "Solutions Engineer",
+      "location": "Bengaluru",
+      "preview_rows": 15,
+      "boards_per_provider": 2
+    },
+    "on_block": {
+      "cooldown_minutes": 5,
+      "give_up_after": 3
+    }
+  },
+  "titles": {
+    "search": [
+      "Associate Solutions Architect",
+      "Solutions Engineer",
+      "Pre-Sales Engineer",
+      "Technical Consultant",
+      "Forward Deployed Engineer",
+      "Customer Engineer",
+      "Implementation Engineer",
+      "Associate Software Engineer backend",
+      "Graduate Engineer Trainee AI ML",
+      "Cloud Engineer",
+      "MLOps Engineer",
+      "Data Engineer",
+      "AI Engineer",
+      "GenAI Engineer",
+      "Associate Technical Product Manager",
+      "Technical Account Manager",
+      "Generative AI Engineer",
+      "LLM Engineer",
+      "Agentic AI Engineer",
+      "AI Developer",
+      "Applied AI Engineer",
+      "AI ML Intern",
+      "GenAI Intern",
+      "Data Engineering Intern",
+      "Software Engineering Intern",
+      "Data Science Intern"
+    ],
+    "want": [
+      "solutions?\\s+(architect|engineer|consultant)",
+      "pre-?\\s?sales",
+      "(technical|tech)\\s+(consultant|account\\s+manager|product\\s+manager|solutions?)",
+      "forward[\\s-]+deployed",
+      "customer\\s+engineer",
+      "implementation\\s+(engineer|consultant|specialist)",
+      "backend|back-end",
+      "platform\\s+engineer",
+      "(graduate|engineer|associate)\\s+(engineer\\s+)?trainee|\\bGET\\b",
+      "cloud\\s+(engineer|solutions?)",
+      "mlops|ml\\s*ops|machine\\s+learning\\s+engineer|\\bml\\s+engineer|ai\\s*/?\\s*ml\\s+engineer",
+      "\\bai\\s+engineer|gen\\s?ai|generative\\s+ai",
+      "data\\s+engineer(?!ing)",
+      "product\\s+manager|account\\s+manager",
+      "\\bllms?\\b|large\\s+language\\s+model|prompt\\s+engineer|agentic|\\brag\\b|applied\\s+ai|\\bnlp\\s+engineer|\\bai\\s*(developer|specialist|application|solutions?\\s+engineer)",
+      "(?=.*\\b(software|data|ai|ml|machine\\s+learning|gen\\s?ai|llm|nlp|backend|cloud|python|devops|engineer(ing)?|developer|solutions?|technical|tech)\\b).*\\bintern(ship)?\\b"
+    ],
+    "exclude": [
+      "executive",
+      "tele\\s?calling",
+      "trainer",
+      "mechanical|diploma|electrical|civil|\\bfpga\\b|clinical|shift operator",
+      "\\berp\\b|\\bsap\\b|workday|netsuite|zoho",
+      "salesforce",
+      "dynamics|\\bd365\\b|business\\s+central|navision",
+      "\\boracle\\b",
+      "\\belv\\b",
+      "\\banalysts?\\b"
+    ],
+    "drop": [
+      "senior",
+      "sr\\.?",
+      "staff",
+      "principal",
+      "lead",
+      "leader",
+      "group",
+      "head",
+      "director",
+      "vp",
+      "avp",
+      "vice president",
+      "manager",
+      "experienced",
+      "ii",
+      "iii",
+      "iv",
+      "sse",
+      "intermediate"
+    ],
+    "level_codes": [
+      "\\b[3-9][a-z]?\\s*$",
+      "\\b(l|ba|sde|swe|se|ic|pm)[3-9]\\b"
+    ],
+    "seniority_words": [
+      "senior",
+      "sr\\.?",
+      "staff",
+      "principal",
+      "lead",
+      "head",
+      "director"
+    ],
+    "manager_allowed": [
+      "technical account manager",
+      "product manager"
+    ],
+    "needs_entry_signal": [
+      "solutions?\\s+architect"
+    ],
+    "entry_signal": [
+      "\\b(associate|assoc|junior|jr|graduate|trainee|freshers?|entry[\\s-]level)\\b",
+      "\\bi\\s*$"
+    ],
+    "internship": "\\bintern(?:ship)?\\b"
+  },
+  "filters": {
+    "max_min_years": 2,
+    "experience_context_chars": 60
+  },
+  "output": {
+    "csv": "jobs.csv",
+    "raw": "jobs_raw.pkl",
+    "columns": {
+      "title": "title",
+      "company": "company",
+      "fit": "fit",
+      "scored_by": "scored by",
+      "why": "why",
+      "send": "send resume",
+      "location": "location",
+      "job_url": "URL",
+      "date_posted": "date posted",
+      "site": "source",
+      "min_years": "min years exp",
+      "is_remote": "remote",
+      "internship": "internship"
+    },
+    "db": "jobs.db",
+    "rejected": "rejected.csv",
+    "daily_dir": "daily",
+    "hide_statuses": [
+      "applied",
+      "rejected"
+    ]
+  },
+  "ats": {
+    "timeout_seconds": 30,
+    "endpoints": {
+      "greenhouse": "https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true",
+      "lever": "https://api.lever.co/v0/postings/{slug}?mode=json",
+      "ashby": "https://api.ashbyhq.com/posting-api/job-board/{slug}",
+      "workable": "https://apply.workable.com/api/v1/widget/accounts/{slug}?details=true",
+      "smartrecruiters": "https://api.smartrecruiters.com/v1/companies/{slug}/postings?country=in&limit=100"
+    },
+    "location_match": [
+      "india",
+      "bengaluru",
+      "bangalore",
+      "mumbai",
+      "pune",
+      "hyderabad",
+      "delhi",
+      "gurgaon",
+      "gurugram",
+      "noida",
+      "chennai",
+      "kolkata",
+      "ahmedabad"
+    ],
+    "detail_delay_seconds": [
+      0.5,
+      1.5
+    ],
+    "max_details_per_board": 60
+  },
+  "ranking": {
+    "profile": "profile.yaml",
+    "skill_points": 70,
+    "role_points": 30,
+    "skill_saturation_min": 12,
+    "skill_saturation_share": 0.4,
+    "title_multiplier": 2,
+    "llm": {
+      "enabled": true,
+      "top_n": 30,
+      "max_tokens": 16000,
+      "timeout_seconds": 180,
+      "effort": "low",
+      "providers": {
+        "anthropic": {
+          "base_url": null,
+          "model": "claude-opus-5-5",
+          "fallback_models": [],
+          "price_per_mtok": [
+            4.0,
+            20.0
+          ]
+        },
+        "gemini": {
+          "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+          "model": "gemini-3.5-flash",
+          "fallback_models": [
+            "gemini-3.6-flash",
+            "gemini-3-flash-preview",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-flash-lite-latest"
+          ],
+          "price_per_mtok": null
+        },
+        "openrouter": {
+          "base_url": "https://openrouter.ai/api/v1",
+          "model": "google/gemini-3.5-flash",
+          "fallback_models": [],
+          "price_per_mtok": null
+        },
+        "xai": {
+          "base_url": "https://api.x.ai/v1",
+          "model": null,
+          "fallback_models": [],
+          "price_per_mtok": null
+        },
+        "openai-compatible": {
+          "base_url": null,
+          "model": null,
+          "fallback_models": [],
+          "price_per_mtok": null
+        }
+      }
+    }
+  },
+  "email": {
+    "enabled": true,
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 465,
+    "timeout_seconds": 30
+  }
+}

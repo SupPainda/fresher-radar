@@ -1,0 +1,42 @@
+# Example job-matching profile. Copy to data/profile.yaml (or wherever JSEARCH_DATA_DIR points) and make it yours,
+# or generate yours from your resumes: python fetch_jobs.py --build-profile "<folder with your .pdf/.docx resumes>"
+#
+# skills: weight 3 = core strength, 2 = solid, 1 = familiar. Matched as whole words in job titles (counts double),
+#         descriptions and Naukri skill tags. Write them the way job postings do.
+# aliases: other spellings postings use for one of your skills.
+# resumes: your resume variants. Each job suggests the one whose focus terms it mentions most (first one on a tie).
+name: Asha Example
+experience_years: 0
+summary: >
+  Final-year B.Tech student in computer science. Built a RAG chatbot over college documents with FastAPI and
+  PostgreSQL during a six-month internship, and a churn-prediction model in a data science course project.
+  Looking for entry-level AI engineer, data engineer or associate product manager roles.
+target_roles:
+  - AI Engineer
+  - Machine Learning Engineer
+  - Data Engineer
+  - Associate Product Manager
+skills:
+  python: 3
+  rag: 3
+  llm: 3
+  fastapi: 2
+  postgresql: 2
+  sql: 2
+  machine learning: 2
+  pandas: 2
+  docker: 1
+  aws: 1
+  product management: 1
+aliases:
+  rag: [retrieval augmented generation, retrieval-augmented generation]
+  llm: [llms, large language model, large language models, genai, gen ai, generative ai]
+  postgresql: [postgres]
+  machine learning: [ml]
+resumes:
+  - label: AI
+    file: Asha_Resume_AI.pdf
+    focus: [llm, rag, machine learning, python, fastapi]
+  - label: PM
+    file: Asha_Resume_PM.pdf
+    focus: [product, roadmap, stakeholder, user research, metrics]
