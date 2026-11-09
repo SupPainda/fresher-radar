@@ -281,3 +281,7 @@ Each entry in `config.json` `sources` has a `type`, an optional `delay_seconds`,
 This never logs into anything: it reads public listings at a slow, fixed pace, backs off when a
 site says no, and never solves captchas or rotates proxies to get around a block. Keep it that way, and keep the
 delays in `config.json` if you run it yourself. It is meant for one person's job search, not bulk collection.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
