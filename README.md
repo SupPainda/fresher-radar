@@ -96,9 +96,13 @@ their own hiring (the jobs behind a "Careers" page); their feeds are public, so 
 company. They only cover companies on the list. About 670 Indian and global companies were checked (November
 2026: tech and startups, then banks and financial services, hospitals, pharma and health-tech, defence and
 space); the 112 with jobs in India are in `config.json`. Many large Indian employers had no public feed on any of
-the five, so Naukri is the way to see them: Flipkart, Razorpay, PhonePe, Zomato and its District and Blinkit
-(Eternal hires mostly through referrals), banks such as SBI, HDFC Bank, ICICI and IDFC FIRST (own career portals
-or recruitment exams), most hospital chains and pharma companies, and defence PSUs such as HAL and BEL. To add a company, put its board id in the right `boards` list (the id is in its careers URL, e.g.
+the five, so Naukri is the way to see them: Flipkart (TurboHire), PhonePe, Zomato and its District and Blinkit
+(Eternal hires mostly through referrals), banks such as SBI (recruitment notices), ICICI (own portal), HDFC Bank
+and Axis Bank (RippleHire), Kotak (Oracle) and IDFC FIRST, Sun Pharma (SuccessFactors) and most hospital chains,
+and defence PSUs such as HAL. A board id can differ from the company name: Razorpay's Greenhouse id is
+`razorpaysoftwareprivatelimited`, found on its careers page.
+
+To add a company, put its board id in the right `boards` list (the id is in its careers URL, e.g.
 `boards.greenhouse.io/<id>` or `jobs.lever.co/<id>`).
 
 Sources run in parallel, one worker per source, so a run takes as long as the slowest one; within a source,
