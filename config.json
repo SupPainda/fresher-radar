@@ -360,8 +360,15 @@
     },
     "db": "jobs.db",
     "rejected": "rejected.csv",
+    "excel": "jobs.xlsx",
     "daily_dir": "daily",
     "hide_statuses": [
+      "applied",
+      "rejected"
+    ],
+    "status_choices": [
+      "new",
+      "interested",
       "applied",
       "rejected"
     ]

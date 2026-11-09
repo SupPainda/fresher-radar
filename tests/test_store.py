@@ -104,3 +104,44 @@ def test_refilter_run_writes_csv_and_hides_applied_jobs(cfg):
     assert len(second) == 2
     assert first.loc[0, "title"] not in second["title"].tolist()
     assert second.set_index("title").loc[first.loc[1, "title"], "notes"] == "follow up"
+
+
+# --- statuses from the .csv and the .xlsx: the one edited last wins ---------------------------------------
+
+def edit(path, title: str, status: str, mtime: float) -> None:
+    """Change one row's status in the .csv or .xlsx job list, as Excel would, and set its modified time."""
+    import os
+    if path.suffix == ".xlsx":
+        table = pd.read_excel(path, dtype=str)
+        table.loc[table["title"] == title, "status"] = status
+        table.to_excel(path, index=False, sheet_name="jobs")
+    else:
+        table = pd.read_csv(path, encoding="utf-8-sig", dtype=str)
+        table.loc[table["title"] == title, "status"] = status
+        table.to_csv(path, index=False, encoding="utf-8-sig")
+    os.utime(path, (mtime, mtime))
+
+
+@pytest.mark.parametrize("newer", ["excel", "csv"])
+def test_the_list_edited_last_wins(cfg, newer):
+    paths = cfg["paths"]
+    paths["raw"].parent.mkdir(parents=True, exist_ok=True)
+    job_frame(2).to_pickle(paths["raw"])
+    args = Namespace(test=False, refilter=True, sources=[])
+    fj.run(args, cfg)
+    assert paths["excel"].exists() and paths["csv"].exists()
+    title = pd.read_csv(paths["csv"], encoding="utf-8-sig")["title"].iloc[0]
+    older = "csv" if newer == "excel" else "excel"
+    edit(paths[older], title, "interested", 1_000_000)   # an earlier edit in the other file...
+    edit(paths[newer], title, "applied", 2_000_000)      # ...and the latest one, which must win
+    fj.run(args, cfg)
+    assert con_status(paths["db"], title) == "applied"
+    assert title not in pd.read_excel(paths["excel"])["title"].tolist()   # applied: hidden from the list
+
+
+def con_status(db, title: str) -> str:
+    c = store.connect(db)
+    try:
+        return c.execute("SELECT status FROM jobs WHERE title = ?", (title,)).fetchone()[0]
+    finally:
+        c.close()

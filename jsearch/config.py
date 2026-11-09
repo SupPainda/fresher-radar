@@ -115,9 +115,11 @@ class Output(Strict):
     raw: str
     db: str
     rejected: str
+    excel: str                    # the formatted copy of the job list you open (statuses are read from both)
     daily_dir: str                # a dated copy of the CSV per day: <daily_dir>/jobs_<date>.csv
     columns: dict[str, str] = Field(min_length=1)
     hide_statuses: list[str]
+    status_choices: list[str] = Field(min_length=1)   # the Excel status drop-down
 
 
 class Ats(Strict):
@@ -249,7 +251,7 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
         raise ConfigError(f"config.json is not valid JSON: {e}") from None
     validate(cfg)
     cfg["env"] = env = load_env()
-    cfg["paths"] = {k: env["data_dir"] / cfg["output"][k] for k in ("csv", "raw", "db", "rejected")}
+    cfg["paths"] = {k: env["data_dir"] / cfg["output"][k] for k in ("csv", "raw", "db", "rejected", "excel")}
     cfg["paths"]["partial"] = env["data_dir"] / "partial"  # progress of an unfinished run (--resume)
     cfg["paths"]["daily"] = env["data_dir"] / cfg["output"]["daily_dir"]
     cfg["paths"]["profile"] = env["data_dir"] / cfg["ranking"]["profile"]  # whose fit jobs are ranked by

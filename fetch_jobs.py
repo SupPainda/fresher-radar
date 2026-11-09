@@ -18,7 +18,7 @@ import pandas as pd
 from jsearch import llm, mailer, store
 from jsearch.config import ConfigError, load_config
 from jsearch.filters import clean, min_years, reject_reason
-from jsearch.outputs import OutputLocked, check_writable, save_csv
+from jsearch.outputs import OutputLocked, check_writable, save_csv, save_xlsx
 from jsearch.profile import Profile, ProfileError, load_profile, read_resumes, write_profile
 from jsearch.ranking import reserves, score
 from jsearch.runlog import IST, now_ist, start_log
@@ -151,17 +151,19 @@ def run(args: argparse.Namespace, cfg: dict) -> None:
     profile = load_profile(paths["profile"])  # a broken profile fails now, not after an hour of scraping
     if not args.test:
         try:
-            check_writable(paths["csv"], paths["rejected"])  # before an hour of scraping, not after
+            check_writable(paths["csv"], paths["excel"], paths["rejected"])  # before an hour of scraping, not after
         except OutputLocked as e:
             if not getattr(args, "scheduled", False):
                 raise
             logger.warning(f"{e} Scheduled run: carrying on; the results go to a dated copy instead.")
         paths["db"].parent.mkdir(parents=True, exist_ok=True)
-        # read status edits from the CSV before anything can overwrite it
+        # read status edits before anything can overwrite them: from the .csv and the .xlsx, the one edited last
+        # read last, so the other (unchanged since the previous run, so matching the database) can't undo it
         con = store.connect(paths["db"])
-        edited = store.import_csv_edits(con, paths["csv"], cols["title"], cols["company"])
-        if edited:
-            logger.info(f"read {edited} status/notes edits from {paths['csv']}")
+        for path in sorted((p for p in (paths["csv"], paths["excel"]) if p.exists()), key=lambda p: p.stat().st_mtime):
+            edited = store.import_csv_edits(con, path, cols["title"], cols["company"])
+            if edited:
+                logger.info(f"read {edited} status/notes edits from {path}")
 
     if args.refilter:
         raw = pd.read_pickle(paths["raw"])
@@ -210,11 +212,15 @@ def run(args: argparse.Namespace, cfg: dict) -> None:
     saved = save_csv(out, paths["csv"])
     logger.info(f"saved {saved}: {len(out)} rows, {int(df['new'].sum())} new, {int(hidden.sum())} hidden "
                 f"({'/'.join(out_cfg['hide_statuses'])}) | database: {store.status_counts(con)}")
-    note = (f"{paths['csv'].name} was open in Excel, so this run's list was saved to {saved.name}; statuses typed "
-            f"into that copy are not read back." if saved != paths["csv"] else "")
+    saved_xlsx = save_xlsx(out, paths["excel"], cols["job_url"], out_cfg["status_choices"])
+    logger.info(f"saved {saved_xlsx}")
+    moved = [(p, s) for p, s in ((paths["excel"], saved_xlsx), (paths["csv"], saved)) if s != p]
+    note = (f"{moved[0][0].name} was open in Excel, so this run's list was saved to {moved[0][1].name}; statuses "
+            f"typed into that copy are not read back." if moved else "")
     daily = paths["daily"] / f"jobs_{today}.csv"  # one per day; a second run that day replaces it
     daily.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"saved {save_csv(out, daily)} (today's copy; edit statuses in {paths['csv'].name})")
+    logger.info(f"saved {save_csv(out, daily)} (today's copy; edit statuses in {paths['excel'].name} or "
+                f"{paths['csv'].name})")
     rej = rejected.reindex(columns=["reason", "title", "company", "site", "min_years", "date_posted", "job_url"])
     saved = save_csv(rej, paths["rejected"])
     kinds = rejected["reason"].str.split(":").str[0].str.replace(r"\d+(\.\d+)?", "N", regex=True)  # group 3+/5+ years

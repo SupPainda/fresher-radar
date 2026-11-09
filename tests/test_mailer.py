@@ -106,16 +106,22 @@ def test_more_good_fits_counts_the_rest_above_more_fit():
     assert mailer.more_good_fits(job_frame(2), top, 0) == 0   # unranked
 
 
-def test_message_lists_each_job_with_its_link_and_marks_new_ones():
-    top = mailer.top_jobs(ranked(4), fixed(4))
+def test_new_jobs_come_first_then_the_rest_each_with_its_link():
+    top = mailer.top_jobs(ranked(4), fixed(4))          # fit 80, 70 (new), 60, 50 (new)
     msg = mailer.build_message(top, "me@gmail.com", ["me@gmail.com"], "9 Nov")
-    assert msg["Subject"] == "JSearch: top 4 jobs, 2 new (9 Nov)"
+    assert msg["Subject"] == "fresher-radar: 2 new, top 4 jobs (9 Nov)"
     text = msg.get_body(("plain",)).get_content()
     page = msg.get_body(("html",)).get_content()
     for _, r in top.iterrows():
         assert r["job_url"] in text and f'href="{r["job_url"]}"' in page
-    assert text.index("[80]") < text.index("[50]")
-    assert page.count(">NEW</b>") == 2 and "NEW [70]" in text
+    assert (text.index("New today (2)") < text.index("1. [70]") < text.index("2. [50]")
+            < text.index("Also on your top list (2)") < text.index("3. [80]") < text.index("4. [60]"))
+    assert "New today (2)</h3>" in page and "Also on your top list (2)</h3>" in page
+
+
+def test_all_new_has_no_also_section():
+    msg = mailer.build_message(ranked(2).assign(new=True), "a@b", ["a@b"], "d")
+    assert "Also on your top list" not in msg.get_body(("plain",)).get_content()
 
 
 def test_message_escapes_html_in_job_text():
@@ -124,9 +130,24 @@ def test_message_escapes_html_in_job_text():
     assert "<script>" not in page and "&lt;script&gt;" in page
 
 
-def test_message_without_new_jobs_has_a_plain_subject():
-    msg = mailer.build_message(ranked(2).assign(new=False), "a@b", ["a@b"], "d")
-    assert msg["Subject"] == "JSearch: top 2 jobs (d)"
+def test_a_quiet_day_is_one_line_not_the_same_list_again():
+    top = ranked(2).assign(new=False)
+    msg = mailer.build_message(top, "a@b", ["a@b"], "d")
+    assert msg["Subject"] == "fresher-radar: nothing new today (d)"
+    text = msg.get_body(("plain",)).get_content()
+    assert text.strip() == "No new jobs made your top list today. Your top list (2 jobs) is unchanged in jobs.xlsx."
+    assert top["job_url"].iloc[0] not in text
+
+
+@pytest.mark.parametrize("below, says", [(1, "; 1 new one scored lower."), (3, "; 3 new ones scored lower.")])
+def test_a_quiet_day_says_how_many_new_jobs_scored_lower(below, says):
+    msg = mailer.build_message(ranked(2).assign(new=False), "a@b", ["a@b"], "d", new_below=below)
+    assert says in msg.get_body(("plain",)).get_content()
+
+
+def test_a_quiet_day_still_carries_the_note():
+    msg = mailer.build_message(ranked(1).assign(new=False), "a@b", ["a@b"], "d", note="jobs.xlsx was open")
+    assert msg.get_body(("plain",)).get_content().startswith("Note: jobs.xlsx was open")
 
 
 # --- sending -----------------------------------------------------------------------------------------------
@@ -158,9 +179,18 @@ def test_send_top_sends_everything_above_the_bar_and_counts_the_rest(ecfg, caplo
         assert mailer.send_top(ranked(5), ecfg, "d", ENV, factory()) is True   # fits 50..90
     msg = FakeSMTP.instances[0].sent[0][0]
     text, page = msg.get_body(("plain",)).get_content(), msg.get_body(("html",)).get_content()
-    assert msg["Subject"].startswith("JSearch: top 2 jobs") and "[90]" in text and "[70]" not in text
-    assert "...and 2 more with fit 60+ in jobs.csv." in text and "...and 2 more with fit 60+" in page
-    assert "emailed the top 2 jobs to me@gmail.com" in caplog.text
+    assert msg["Subject"] == "fresher-radar: 1 new, top 2 jobs (d)" and "[90]" in text and "[70]" not in text
+    assert "...and 2 more with fit 60+ in jobs.xlsx." in text and "...and 2 more with fit 60+" in page
+    assert "emailed 1 new, top 2 jobs (d) to me@gmail.com" in caplog.text
+
+
+def test_send_top_counts_new_jobs_below_the_list_on_a_quiet_day(ecfg):
+    ecfg["ranking"]["top"] = {"min_fit": 80, "min_jobs": 0, "max_jobs": 60, "more_fit": 60}
+    df = ranked(5).assign(new=[True, False, False, False, False])   # the only new job has fit 50
+    mailer.send_top(df, ecfg, "d", ENV, factory())
+    msg = FakeSMTP.instances[0].sent[0][0]
+    assert msg["Subject"] == "fresher-radar: nothing new today (d)"
+    assert "; 1 new one scored lower." in msg.get_body(("plain",)).get_content()
 
 
 def test_no_more_line_when_nothing_else_is_good(ecfg):

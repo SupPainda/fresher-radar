@@ -64,39 +64,67 @@ def _cell(row: pd.Series, col: str) -> str:
     return "" if value is None or (not isinstance(value, (list, dict)) and pd.isna(value)) else str(value)
 
 
-def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note: str = "",
-                  more: str = "") -> EmailMessage:
-    """Plain-text and HTML versions of the same list; note (e.g. where the CSV went) goes above it, more
-    (e.g. how many other good fits the CSV has) below it."""
-    new = int(top["new"].sum()) if "new" in top else 0
-    msg = EmailMessage()
-    msg["Subject"] = f"JSearch: top {len(top)} jobs" + (f", {new} new" if new else "") + f" ({when})"
-    msg["From"], msg["To"] = sender, ", ".join(to)
+SUBJECT = "fresher-radar"
+TABLE_HEAD = ('<table cellpadding="6" style="border-collapse:collapse" border="1">'
+              "<tr><th>#</th><th>Fit</th><th>Job</th><th>Why</th><th>Send resume</th></tr>")
 
+
+def _is_new(r: pd.Series) -> bool:
+    return pd.notna(r.get("new")) and bool(r.get("new"))
+
+
+def _section(jobs: pd.DataFrame, start: int) -> tuple[list[str], list[str]]:
+    """Plain-text entries and HTML table rows for jobs, numbered from start."""
     lines, rows = [], []
-    for i, (_, r) in enumerate(top.iterrows(), 1):
-        flag = "NEW " if pd.notna(r.get("new")) and bool(r.get("new")) else ""
-        fit = _cell(r, "fit")
+    for i, (_, r) in enumerate(jobs.iterrows(), start):
         extra = " | ".join(x for x in (_cell(r, "location"), f"send: {_cell(r, 'send')}" if _cell(r, "send") else "")
                            if x)
-        lines.append(f"{i}. {flag}[{fit}] {_cell(r, 'title')} at {_cell(r, 'company')}\n"
+        lines.append(f"{i}. [{_cell(r, 'fit')}] {_cell(r, 'title')} at {_cell(r, 'company')}\n"
                      f"   {_cell(r, 'why')}\n   {extra}\n   {_cell(r, 'job_url')}")
         e = {c: html.escape(_cell(r, c)) for c in ("title", "company", "location", "why", "send", "job_url", "fit")}
-        badge = '<b style="color:#c0392b">NEW</b> ' if flag else ""
         rows.append(f'<tr><td>{i}</td><td align="right"><b>{e["fit"]}</b></td>'
-                    f'<td>{badge}<a href="{e["job_url"]}">{e["title"]}</a><br><small>{e["company"]} · '
+                    f'<td><a href="{e["job_url"]}">{e["title"]}</a><br><small>{e["company"]} · '
                     f'{e["location"]}</small></td><td><small>{e["why"]}</small></td><td>{e["send"]}</td></tr>')
-    msg.set_content((f"Note: {note}\n\n" if note else "")
-                    + f"Top {len(top)} jobs by fit ({when}):\n\n" + "\n\n".join(lines) + "\n"
-                    + (f"\n{more}\n" if more else ""))
-    msg.add_alternative(
-        '<html><body style="font-family:sans-serif">'
-        + (f'<p style="color:#c0392b"><b>Note:</b> {html.escape(note)}</p>' if note else "")
-        + f"<p>Top {len(top)} jobs by fit ({html.escape(when)}){f', {new} new' if new else ''}.</p>"
-        '<table cellpadding="6" style="border-collapse:collapse" border="1">'
-        "<tr><th>#</th><th>Fit</th><th>Job</th><th>Why</th><th>Send resume</th></tr>"
-        + "".join(rows) + "</table>" + (f"<p>{html.escape(more)}</p>" if more else "") + "</body></html>",
-        subtype="html")
+    return lines, rows
+
+
+def build_message(top: pd.DataFrame, sender: str, to: list[str], when: str, note: str = "",
+                  more: str = "", new_below: int = 0) -> EmailMessage:
+    """Plain-text and HTML versions of the same list, the jobs new today first.
+
+    note (e.g. where the list went) goes above it, more (how many other good fits jobs.xlsx has) below it.
+    With no new job on the list, the email is one line instead (new_below: new jobs that scored lower).
+    """
+    is_new = top.apply(_is_new, axis=1).astype(bool) if len(top) else pd.Series(dtype=bool)
+    fresh, rest = top[is_new], top[~is_new]
+    msg = EmailMessage()
+    msg["From"], msg["To"] = sender, ", ".join(to)
+    head_text = f"Note: {note}\n\n" if note else ""
+    head_html = f'<p style="color:#c0392b"><b>Note:</b> {html.escape(note)}</p>' if note else ""
+
+    if not len(fresh):  # quiet day: one line, not the same list again
+        msg["Subject"] = f"{SUBJECT}: nothing new today ({when})"
+        line = (f"No new jobs made your top list today"
+                + (f"; {new_below} new {'one' if new_below == 1 else 'ones'} scored lower" if new_below else "")
+                + f". Your top list ({len(top)} jobs) is unchanged in jobs.xlsx.")
+        msg.set_content(head_text + line + "\n")
+        msg.add_alternative(f'<html><body style="font-family:sans-serif">{head_html}<p>{html.escape(line)}</p>'
+                            "</body></html>", subtype="html")
+        return msg
+
+    msg["Subject"] = f"{SUBJECT}: {len(fresh)} new, top {len(top)} jobs ({when})"
+    new_lines, new_rows = _section(fresh, 1)
+    old_lines, old_rows = _section(rest, len(fresh) + 1)
+    text = head_text + f"New today ({len(fresh)}):\n\n" + "\n\n".join(new_lines) + "\n"
+    page = (f'<html><body style="font-family:sans-serif">{head_html}'
+            f'<h3 style="color:#c0392b">New today ({len(fresh)})</h3>' + TABLE_HEAD + "".join(new_rows) + "</table>")
+    if len(rest):
+        text += f"\nAlso on your top list ({len(rest)}):\n\n" + "\n\n".join(old_lines) + "\n"
+        page += f"<h3>Also on your top list ({len(rest)})</h3>" + TABLE_HEAD + "".join(old_rows) + "</table>"
+    text += f"\n{more}\n" if more else ""
+    page += (f"<p>{html.escape(more)}</p>" if more else "") + "</body></html>"
+    msg.set_content(text)
+    msg.add_alternative(page, subtype="html")
     return msg
 
 
@@ -131,12 +159,15 @@ def send_top(df: pd.DataFrame, cfg: dict, when: str, env: Mapping[str, str] = os
         logger.info("email skipped: no ranked jobs to send (ranking needs a profile)")
         return False
     extra = more_good_fits(df, top, top_cfg["more_fit"])
-    more = f"...and {extra} more with fit {top_cfg['more_fit']:g}+ in jobs.csv." if extra else ""
+    more = f"...and {extra} more with fit {top_cfg['more_fit']:g}+ in jobs.xlsx." if extra else ""
+    on_list = set(top["job_url"]) if "job_url" in top else set()
+    new_below = int(sum(_is_new(r) for _, r in df.iterrows() if r.get("job_url") not in on_list))
     try:
         s = settings(env)
-        send(build_message(top, s.sender, s.to, when, note, more), s, cfg, smtp_factory)
+        msg = build_message(top, s.sender, s.to, when, note, more, new_below)
+        send(msg, s, cfg, smtp_factory)
     except MailUnavailable as e:
         logger.info(f"email skipped ({e})")
         return False
-    logger.info(f"emailed the top {len(top)} jobs to {', '.join(s.to)}")
+    logger.info(f"emailed {msg['Subject'].split(': ', 1)[1]} to {', '.join(s.to)}")
     return True

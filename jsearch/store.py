@@ -71,10 +71,14 @@ def save_llm_scores(con: sqlite3.Connection, profile_hash: str, scored_at: str,
 
 
 def import_csv_edits(con: sqlite3.Connection, csv_path: Path | str, title_col: str, company_col: str) -> int:
-    """Copy status/notes typed into the CSV back into the database. Returns how many rows changed."""
+    """Copy status/notes typed into the job list (.csv, or the .xlsx copy) back into the database.
+    Returns how many rows changed."""
     if not Path(csv_path).exists():
         return 0
-    csv = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=str)
+    if Path(csv_path).suffix.lower() == ".xlsx":
+        csv = pd.read_excel(csv_path, dtype=str)
+    else:
+        csv = pd.read_csv(csv_path, encoding="utf-8-sig", dtype=str)
     if "status" not in csv:
         return 0  # a CSV written before the database existed
     csv["key"] = job_key(csv[title_col], csv[company_col])

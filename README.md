@@ -45,7 +45,7 @@ Then:
 5. **Every day:** `powershell -ExecutionPolicy Bypass -File scripts\install_schedule.ps1` (see
    [Daily run](#daily-run-windows-task-scheduler)).
 
-Results are in `data\jobs.csv`. Everything under `data\` is git-ignored.
+Results are in `data\jobs.xlsx` (and the same list as `data\jobs.csv`). Everything under `data\` is git-ignored.
 
 ## Commands
 
@@ -180,11 +180,18 @@ Resume text leaves your machine only for `--build-profile` and the top-list resc
 
 ## Tracking (jobs.db)
 
-Every job that passes the filters is remembered in `jobs.db` (SQLite). Each run rewrites `jobs.csv` with the
-current matches, `NEW` first, plus `first seen`, `status` and `notes` columns.
+Every job that passes the filters is remembered in `jobs.db` (SQLite). Each run rewrites the job list with the
+current matches, `NEW` first, plus `first seen`, `status` and `notes` columns, in two files:
 
-- Type a status into the CSV (`applied`, `rejected`, `interested`, ...) or a note, save, and the next run copies
-  it into the database before rewriting the CSV.
+- **`jobs.xlsx`, the one to open:** links you can click, a frozen header row with filters, NEW rows in green,
+  fit coloured red to green, and a status drop-down (`output.status_choices`; other words still work).
+- **`jobs.csv`:** the same list as plain text, for scripts or other tools.
+
+Edit statuses and notes in either; the next run reads both, the one you saved last read last, so the other
+(still as the previous run wrote it) can't undo your edit.
+
+- Type a status (`applied`, `rejected`, `interested`, ...) or a note, save, and the next run copies it into the
+  database before rewriting the list.
 - Jobs marked `applied` or `rejected` (`output.hide_statuses`) no longer appear in the CSV; they stay in the
   database.
 - A job is identified by normalised title + company, so a repost under a new URL keeps its status.
@@ -192,17 +199,18 @@ current matches, `NEW` first, plus `first seen`, `status` and `notes` columns.
   record: statuses are only read from `jobs.csv`.
 - `--test` never touches the database or the CSVs.
 
-Close the CSV in Excel before running. A normal run checks this at startup and stops before scraping if the CSV is
-locked; if it gets opened mid-run, the results go to a timestamped `jobs_<date>_<time>.csv` instead (statuses typed
-into that copy are not read back). `config.json` is validated at startup too: a typo'd key, a broken regex or a
+Close `jobs.xlsx` / `jobs.csv` in Excel before running. A normal run checks this at startup and stops before
+scraping if one is locked; if it gets opened mid-run, the results go to a timestamped copy
+(`jobs_<date>_<time>.xlsx`) instead (statuses typed into that copy are not read back). `config.json` is validated at startup too: a typo'd key, a broken regex or a
 bad value stops the run with a list of every problem and where it is.
 
 ## Email of the top jobs
 
 After every scraping run, the top list is emailed to you: fit, title with its link, company, location, the
-reason, which resume to send, and NEW on jobs first seen today. It uses the final scores, so a job the LLM marked
-below the bar drops out; a closing line counts the other jobs with fit `ranking.top.more_fit` (60) or more that
-are waiting in `jobs.csv`. `--refilter` sends only with `--email`; `--test` never sends.
+reason and which resume to send. Jobs first seen today come first under **New today**, the rest under **Also on
+your top list**. On a day when no new job makes the list, the email is a single line instead (saying how many new
+jobs scored lower). It uses the final scores, so a job the LLM marked below the bar drops out; a closing line
+counts the other jobs with fit `ranking.top.more_fit` (60) or more that are waiting in `jobs.xlsx`. `--refilter` sends only with `--email`; `--test` never sends.
 
 Set it up in `.env` (see `.env.example`): `EMAIL_FROM`, `EMAIL_APP_PASSWORD` and optionally `EMAIL_TO`. For Gmail
 the password is an **app password**: turn on 2-step verification, then create one at
